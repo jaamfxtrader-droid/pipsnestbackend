@@ -1,0 +1,16 @@
+node_modules
+.gradle
+android/.gradle
+mobile-app/android/.gradle
+.next
+dist
+build
+.env
+.env.local
+.env.production
+.vercel
+.turbo
+coverage
+*.log
+.DS_Store
+prisma/dev.db
