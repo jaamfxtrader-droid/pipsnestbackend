@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { getNowPaymentStatus, mapNowPaymentStatus, verifyNowPaymentsSignature } from "../services/nowpayments.service.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
 const createPaymentSchema = z.object({
@@ -15,6 +16,12 @@ const webhookSchema = z.object({
   orderId: z.string().optional(),
   status: z.enum(["PENDING", "SUCCEEDED", "FAILED", "REFUNDED"])
 });
+
+const nowPaymentsWebhookSchema = z.object({
+  payment_id: z.union([z.string(), z.number()]).optional(),
+  payment_status: z.string().optional(),
+  order_id: z.string().optional()
+}).passthrough();
 
 export const paymentRouter = Router();
 
@@ -65,6 +72,84 @@ paymentRouter.post(
       await prisma.order.update({ where: { id: payment.orderId }, data: { status: "PAID" } });
     }
 
+    sendSuccess(res, { received: true });
+  })
+);
+
+async function syncNowPayment(providerPaymentId: string, providerStatus?: string, payload?: unknown) {
+  const paymentStatus = mapNowPaymentStatus(providerStatus);
+  const existingPayment = await prisma.payment.findFirst({
+    where: { provider: "nowpayments", providerPaymentId }
+  });
+  if (!existingPayment) throw new HttpError(404, "Crypto payment not found");
+
+  const payment = await prisma.payment.update({
+    where: { id: existingPayment.id },
+    data: {
+      status: paymentStatus,
+      metadata: payload ? (payload as object) : undefined
+    },
+    include: { order: true }
+  });
+
+  if (payment.orderId) {
+    await prisma.order.update({
+      where: { id: payment.orderId },
+      data: { status: paymentStatus === "SUCCEEDED" ? "PAID" : paymentStatus === "FAILED" ? "FAILED" : "PENDING" }
+    });
+  }
+
+  if (payment.orderId && paymentStatus === "SUCCEEDED") {
+    await prisma.notification.create({
+      data: {
+        userId: payment.userId,
+        title: "Challenge crypto payment confirmed",
+        message: "Your crypto payment was confirmed and the challenge order is now paid.",
+        type: "CHALLENGE"
+      }
+    });
+  }
+
+  return payment;
+}
+
+paymentRouter.get(
+  "/nowpayments/:paymentId/status",
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const payment = await prisma.payment.findFirst({
+      where: { provider: "nowpayments", providerPaymentId: req.params.paymentId, userId: req.user!.id },
+      include: { order: { include: { challenge: true } } }
+    });
+    if (!payment) throw new HttpError(404, "Crypto payment not found");
+
+    const status = await getNowPaymentStatus(req.params.paymentId);
+    const syncedPayment = await syncNowPayment(req.params.paymentId, status.payment_status, status);
+    const updatedOrder = payment.orderId
+      ? await prisma.order.findUnique({ where: { id: payment.orderId }, include: { challenge: true, payments: true } })
+      : null;
+
+    sendSuccess(res, {
+      payment: syncedPayment,
+      order: updatedOrder,
+      status: status.payment_status,
+      mappedStatus: syncedPayment.status
+    });
+  })
+);
+
+paymentRouter.post(
+  "/nowpayments/ipn",
+  asyncHandler(async (req, res) => {
+    if (!verifyNowPaymentsSignature(req.body, req.headers["x-nowpayments-sig"])) {
+      throw new HttpError(401, "Invalid NOWPayments signature");
+    }
+
+    const payload = nowPaymentsWebhookSchema.parse(req.body);
+    const providerPaymentId = payload.payment_id ? String(payload.payment_id) : null;
+    if (!providerPaymentId) throw new HttpError(400, "Missing NOWPayments payment id");
+
+    await syncNowPayment(providerPaymentId, payload.payment_status, payload);
     sendSuccess(res, { received: true });
   })
 );

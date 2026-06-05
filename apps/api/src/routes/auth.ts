@@ -280,6 +280,22 @@ async function sendLoginNotice(user: { name: string; email: string }) {
   });
 }
 
+async function sendActionOtpNotice(user: { name: string; email: string }, action: string) {
+  const code = generateOtp(6);
+  const email = otpTemplate({
+    title: `${action} OTP`,
+    name: user.name,
+    code,
+    intro: `Use this OTP as your PipNest Markets security reference for: ${action}.`
+  });
+
+  await sendEmail({
+    to: user.email,
+    subject: `Your PipNest Markets ${action} OTP`,
+    ...email
+  });
+}
+
 async function createLoginNotification(user: { id: string }, req: Request) {
   const ipAddress = getClientIp(req);
   await prisma.notification.create({
@@ -468,7 +484,7 @@ authRouter.post(
         emailSent,
         message: emailSent
           ? "Registration successful. Check your email for the verification OTP."
-          : "Registration successful, but the verification email could not be sent. Please use Resend OTP on the verification page."
+          : "Registration successful, but the verification email could not be sent. Please check SMTP settings, then use the resend OTP button on the verification page."
       },
       201
     );
@@ -554,6 +570,7 @@ authRouter.post(
     const updatedUser = await prisma.user.update({ where: { id: activeUser.id }, data: { lastLoginAt: new Date() } });
     const token = signToken({ id: updatedUser.id, email: updatedUser.email, role: updatedUser.role });
     await createLoginNotification(updatedUser, req);
+    void sendActionOtpNotice(updatedUser, "login").catch((error) => console.error("Login OTP email failed:", error));
     void sendLoginNotice(updatedUser).catch((error) => console.error("Login email failed:", error));
     sendSuccess(res, { token, user: publicUser(updatedUser) });
   })
@@ -580,6 +597,7 @@ authRouter.post(
     const updatedUser = await prisma.user.update({ where: { id: activeUser.id }, data: { lastLoginAt: new Date() } });
     const authToken = signToken({ id: updatedUser.id, email: updatedUser.email, role: updatedUser.role });
     await createLoginNotification(updatedUser, req);
+    void sendActionOtpNotice(updatedUser, "two-factor login").catch((error) => console.error("2FA login OTP email failed:", error));
     void sendLoginNotice(updatedUser).catch((error) => console.error("Login email failed:", error));
     sendSuccess(res, { token: authToken, user: publicUser(updatedUser) });
   })
@@ -601,6 +619,7 @@ authRouter.post(
         twoFactorConfirmedAt: null
       }
     });
+    void sendActionOtpNotice(user, "authenticator setup").catch((error) => console.error("2FA setup OTP email failed:", error));
 
     sendSuccess(res, {
       secret,
@@ -626,6 +645,7 @@ authRouter.post(
       data: { twoFactorEnabled: true, twoFactorConfirmedAt: new Date() }
     });
     await prisma.twoFactorTrustedDevice.deleteMany({ where: { userId: user.id } });
+    void sendActionOtpNotice(updatedUser, "authenticator enabled").catch((error) => console.error("2FA enabled OTP email failed:", error));
     sendSuccess(res, { user: publicUser(updatedUser), message: "Two-factor authentication is enabled" });
   })
 );
@@ -646,6 +666,7 @@ authRouter.post(
       data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorConfirmedAt: null }
     });
     await prisma.twoFactorTrustedDevice.deleteMany({ where: { userId: user.id } });
+    void sendActionOtpNotice(updatedUser, "authenticator disabled").catch((error) => console.error("2FA disabled OTP email failed:", error));
     sendSuccess(res, { user: publicUser(updatedUser), message: "Two-factor authentication is disabled" });
   })
 );

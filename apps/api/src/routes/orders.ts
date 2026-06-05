@@ -6,6 +6,8 @@ import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 import { getTopUpBalance } from "../services/topup.service.js";
+import { sendSecurityOtpEmail } from "../services/security-email.service.js";
+import { createNowPayment } from "../services/nowpayments.service.js";
 import { makeOrderNumber } from "../utils/user.js";
 
 export const orderRouter = Router();
@@ -67,13 +69,15 @@ orderRouter.post(
       : 0;
 
     const total = Math.max(0, amount - discount);
-    if (req.body.paymentMethod !== "TOPUP_BALANCE") {
-      throw new HttpError(400, "Bank, crypto, and card challenge gateways are not enabled yet. Please use top-up balance for now.");
+    if (req.body.paymentMethod !== "TOPUP_BALANCE" && req.body.paymentMethod !== "CRYPTO") {
+      throw new HttpError(400, "Bank and card challenge gateways are not enabled yet. Please use top-up balance or crypto.");
     }
 
-    const topUpBalance = await getTopUpBalance(req.user!.id);
-    if (topUpBalance < total) {
-      throw new HttpError(400, `Top-up balance is too low. Available balance is $${topUpBalance.toFixed(2)}.`);
+    if (req.body.paymentMethod === "TOPUP_BALANCE") {
+      const topUpBalance = await getTopUpBalance(req.user!.id);
+      if (topUpBalance < total) {
+        throw new HttpError(400, `Top-up balance is too low. Available balance is $${topUpBalance.toFixed(2)}.`);
+      }
     }
 
     const order = await prisma.$transaction(async (tx) => {
@@ -86,23 +90,25 @@ orderRouter.post(
           amount,
           discount,
           total,
-          status: "PAID"
+          status: req.body.paymentMethod === "TOPUP_BALANCE" ? "PAID" : "PENDING"
         },
         include: { challenge: true, coupon: true }
       });
 
-      await tx.payment.create({
-        data: {
-          userId: req.user!.id,
-          orderId: createdOrder.id,
-          provider: "topup-wallet",
-          amount: total,
-          status: "SUCCEEDED",
-          metadata: { source: "topup_balance" }
-        }
-      });
+      if (req.body.paymentMethod === "TOPUP_BALANCE") {
+        await tx.payment.create({
+          data: {
+            userId: req.user!.id,
+            orderId: createdOrder.id,
+            provider: "topup-wallet",
+            amount: total,
+            status: "SUCCEEDED",
+            metadata: { source: "topup_balance" }
+          }
+        });
+      }
 
-      if (couponUsable) {
+      if (couponUsable && req.body.paymentMethod === "TOPUP_BALANCE") {
         await tx.coupon.update({ where: { id: coupon!.id }, data: { usedCount: { increment: 1 } } });
       }
 
@@ -112,11 +118,66 @@ orderRouter.post(
     await prisma.notification.create({
       data: {
         userId: req.user!.id,
-        title: "Challenge purchased",
-        message: `${challenge.name} was purchased with your top-up balance.`,
+        title: req.body.paymentMethod === "TOPUP_BALANCE" ? "Challenge purchased" : "Crypto payment started",
+        message:
+          req.body.paymentMethod === "TOPUP_BALANCE"
+            ? `${challenge.name} was purchased with your top-up balance.`
+            : `${challenge.name} crypto checkout is waiting for payment.`,
         type: "CHALLENGE"
       }
     });
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { name: true, email: true } });
+    if (user) {
+      void sendSecurityOtpEmail({
+        user,
+        action: "challenge purchase",
+        details: `${challenge.name} ${req.body.paymentMethod === "TOPUP_BALANCE" ? "purchased" : "checkout started"} for $${total.toFixed(2)}.`
+      }).catch((error) => console.error("Challenge purchase OTP email failed:", error));
+    }
+
+    if (req.body.paymentMethod === "CRYPTO") {
+      try {
+        const nowPayment = await createNowPayment({
+          orderNumber: order.orderNumber,
+          description: `${challenge.name} challenge purchase`,
+          amount: total
+        });
+        const payment = await prisma.payment.create({
+          data: {
+            userId: req.user!.id,
+            orderId: order.id,
+            provider: "nowpayments",
+            providerPaymentId: String(nowPayment.payment_id),
+            amount: total,
+            status: "PENDING",
+            metadata: nowPayment as object
+          }
+        });
+
+        sendSuccess(
+          res,
+          {
+            order,
+            payment,
+            checkout: {
+              provider: "nowpayments",
+              paymentId: String(nowPayment.payment_id),
+              status: nowPayment.payment_status ?? "waiting",
+              payAddress: nowPayment.pay_address,
+              payAmount: nowPayment.pay_amount,
+              payCurrency: nowPayment.pay_currency,
+              priceAmount: nowPayment.price_amount ?? total,
+              priceCurrency: nowPayment.price_currency ?? "usd"
+            }
+          },
+          201
+        );
+        return;
+      } catch (error) {
+        await prisma.order.update({ where: { id: order.id }, data: { status: "FAILED" } });
+        throw new HttpError(502, error instanceof Error ? error.message : "Crypto checkout could not be created");
+      }
+    }
 
     sendSuccess(res, { order }, 201);
   })

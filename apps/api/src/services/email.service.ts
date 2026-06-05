@@ -14,6 +14,12 @@ type SmtpOptionsWithFamily = SMTPTransport.Options & {
   family: 4;
 };
 
+type ResendErrorResponse = {
+  name?: string;
+  message?: string;
+  statusCode?: number;
+};
+
 function normalizeSmtpPassword(host: string, password: string) {
   return host.includes("gmail.com") ? password.replace(/\s+/g, "") : password;
 }
@@ -38,26 +44,19 @@ function getSmtpErrorDetails(error: unknown) {
   return details.join(" | ") || error.name || "Unknown SMTP error";
 }
 
-function getResendErrorDetails(status: number, body: string) {
-  try {
-    const payload = JSON.parse(body) as { message?: string; error?: string; name?: string };
-    return [payload.message, payload.error, payload.name, `status=${status}`].filter(Boolean).join(" | ");
-  } catch {
-    return `${body || "Unknown Resend error"} | status=${status}`;
-  }
-}
-
 async function sendWithResend(input: MailInput) {
-  const apiKey = env.RESEND_API_KEY;
-  const from = env.RESEND_FROM ?? env.MAIL_FROM;
+  const from = env.RESEND_FROM ?? env.MAIL_FROM ?? env.SMTP_USER;
 
-  if (!apiKey || !from) return false;
+  if (!env.RESEND_API_KEY || !from) {
+    console.warn("Resend is not configured. Skipping email:", input.subject);
+    return false;
+  }
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -71,20 +70,20 @@ async function sendWithResend(input: MailInput) {
 
     if (response.ok) return true;
 
-    const body = await response.text();
-    console.error(`Failed to send email "${input.subject}" to ${input.to} via Resend: ${getResendErrorDetails(response.status, body)}`);
+    const error = (await response.json().catch(() => ({}))) as ResendErrorResponse;
+    console.error(
+      `Failed to send email "${input.subject}" to ${input.to} via Resend: status=${response.status} message=${
+        error.message ?? response.statusText
+      }`
+    );
     return false;
   } catch (error) {
-    console.error(`Failed to send email "${input.subject}" to ${input.to} via Resend: ${error instanceof Error ? error.message : error}`);
+    console.error(`Failed to send email "${input.subject}" to ${input.to} via Resend: ${getSmtpErrorDetails(error)}`);
     return false;
   }
 }
 
-export async function sendEmail(input: MailInput) {
-  if (env.RESEND_API_KEY) {
-    return sendWithResend(input);
-  }
-
+async function sendWithSmtp(input: MailInput) {
   const host = env.SMTP_HOST;
   const user = env.SMTP_USER;
   const pass = env.SMTP_PASS;
@@ -128,4 +127,9 @@ export async function sendEmail(input: MailInput) {
   } finally {
     transporter.close();
   }
+}
+
+export async function sendEmail(input: MailInput) {
+  if (env.RESEND_API_KEY) return sendWithResend(input);
+  return sendWithSmtp(input);
 }

@@ -4,6 +4,7 @@ import { payoutRequestSchema } from "@pipnest/shared";
 import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { sendSecurityOtpEmail } from "../services/security-email.service.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
 const payoutStatusSchema = z.object({
@@ -202,6 +203,13 @@ payoutRouter.post(
         bankDetails: req.body.bankDetails
       }
     });
+    if (user) {
+      void sendSecurityOtpEmail({
+        user,
+        action: "payout request",
+        details: `Manual payout request submitted for $${Number(req.body.amount).toFixed(2)}.`
+      }).catch((error) => console.error("Payout request OTP email failed:", error));
+    }
     sendSuccess(res, { payout }, 201);
   })
 );

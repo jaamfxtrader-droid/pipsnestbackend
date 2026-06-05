@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="64" viewBox="0 0 340 64" fill="none">
+  <rect width="340" height="64" rx="18" fill="#F8FAFC"/>
+  <rect x="14" y="13" width="66" height="38" rx="9" fill="#0F172A"/>
+  <text x="31" y="37" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">VISA</text>
+  <rect x="91" y="13" width="66" height="38" rx="9" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <circle cx="117" cy="32" r="11" fill="#EF4444"/>
+  <circle cx="132" cy="32" r="11" fill="#F59E0B" fill-opacity=".9"/>
+  <rect x="168" y="13" width="66" height="38" rx="9" fill="#2563EB"/>
+  <text x="184" y="36" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="700">BANK</text>
+  <rect x="245" y="13" width="80" height="38" rx="9" fill="#ECFEFF" stroke="#67E8F9"/>
+  <text x="263" y="36" fill="#0F172A" font-family="Arial, sans-serif" font-size="12" font-weight="700">USDT</text>
+</svg>

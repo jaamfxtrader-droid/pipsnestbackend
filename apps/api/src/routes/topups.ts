@@ -5,6 +5,7 @@ import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { uploadManualFundingAccountImage, uploadTopUpProof } from "../services/cloudinary.service.js";
+import { sendSecurityOtpEmail } from "../services/security-email.service.js";
 import { buildTopUpOverview, getTopUpBalance } from "../services/topup.service.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
@@ -80,6 +81,14 @@ topUpRouter.post(
         type: "INFO"
       }
     });
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { name: true, email: true } });
+    if (user) {
+      void sendSecurityOtpEmail({
+        user,
+        action: "top-up request",
+        details: `Manual top-up request submitted for $${Number(req.body.amount).toFixed(2)}. Estimated approval time is ${approvalWindow}.`
+      }).catch((error) => console.error("Top-up request OTP email failed:", error));
+    }
 
     sendSuccess(res, { topUp, message: `Manual top-up request submitted. Balance will update after admin approval within ${approvalWindow}.` }, 201);
   })
