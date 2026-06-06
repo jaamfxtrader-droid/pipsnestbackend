@@ -12,6 +12,7 @@ import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 const syncSchema = z.object({
   accountId: z.string().min(1)
 });
+const EMAIL_LOGO_URL = "https://pipnestmarkets.com/logo-icon.png";
 
 function serviceFor(platform: "MT4" | "MT5") {
   return platform === "MT4" ? mt4Service : mt5Service;
@@ -108,6 +109,12 @@ async function sendTradingCredentialsEmail({
       <div style="font-family:Inter,Arial,sans-serif;background:#f8fafc;padding:28px;">
         <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
           <div style="padding:24px;background:#0f172a;color:#ffffff;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;">
+              <tr>
+                <td><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="PipNest Markets" style="display:block;border-radius:12px;background:#ffffff;" /></td>
+                <td style="text-align:right;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</td>
+              </tr>
+            </table>
             <h1 style="margin:0;font-size:22px;">Trading server approved</h1>
             <p style="margin:8px 0 0;color:#cbd5e1;">${challengeName} / ${stageLabel(stage)}</p>
           </div>

@@ -4,11 +4,12 @@ import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { getNowPaymentStatus, mapNowPaymentStatus, verifyNowPaymentsSignature } from "../services/nowpayments.service.js";
+import { money, sendTransactionEmail } from "../services/transaction-email.service.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
 const createPaymentSchema = z.object({
   orderId: z.string().min(1),
-  provider: z.string().default("manual-demo")
+  provider: z.string().default("manual")
 });
 
 const webhookSchema = z.object({
@@ -42,15 +43,15 @@ paymentRouter.post(
         provider: req.body.provider,
         amount: order.total,
         status: "PENDING",
-        metadata: { checkoutMode: "dummy", androidReady: true }
+        metadata: { checkoutMode: "manual", androidReady: true }
       }
     });
 
     sendSuccess(res, {
       payment,
       checkout: {
-        clientSecret: `dummy_${payment.id}`,
-        message: "Payment provider can be connected here later."
+        clientSecret: `manual_${payment.id}`,
+        message: "Your payment request has been created. Please follow the payment instructions in your dashboard."
       }
     });
   })
@@ -79,9 +80,11 @@ paymentRouter.post(
 async function syncNowPayment(providerPaymentId: string, providerStatus?: string, payload?: unknown) {
   const paymentStatus = mapNowPaymentStatus(providerStatus);
   const existingPayment = await prisma.payment.findFirst({
-    where: { provider: "nowpayments", providerPaymentId }
+    where: { provider: "nowpayments", providerPaymentId },
+    include: { user: true, order: { include: { challenge: true } } }
   });
   if (!existingPayment) throw new HttpError(404, "Crypto payment not found");
+  const shouldSendInvoice = existingPayment.status !== "SUCCEEDED" && paymentStatus === "SUCCEEDED";
 
   const payment = await prisma.payment.update({
     where: { id: existingPayment.id },
@@ -89,7 +92,7 @@ async function syncNowPayment(providerPaymentId: string, providerStatus?: string
       status: paymentStatus,
       metadata: payload ? (payload as object) : undefined
     },
-    include: { order: true }
+    include: { user: true, order: { include: { challenge: true } } }
   });
 
   if (payment.orderId) {
@@ -110,8 +113,65 @@ async function syncNowPayment(providerPaymentId: string, providerStatus?: string
     });
   }
 
+  if (shouldSendInvoice && payment.order) {
+    void sendTransactionEmail({
+      to: payment.user.email,
+      name: payment.user.name,
+      subject: `Crypto payment invoice ${payment.order.orderNumber} | PipNest Markets`,
+      title: "Crypto payment confirmed",
+      intro: "Your crypto payment was confirmed and your challenge order has been marked paid.",
+      statusLabel: "Paid",
+      amount: money(payment.amount, payment.currency),
+      rows: [
+        { label: "Order number", value: payment.order.orderNumber },
+        { label: "Challenge", value: payment.order.challenge.name },
+        { label: "Payment provider", value: "NOWPayments" },
+        { label: "Provider payment ID", value: payment.providerPaymentId ?? providerPaymentId },
+        { label: "Confirmed at", value: new Date().toISOString() }
+      ],
+      footerNote: "This invoice was sent after crypto payment confirmation."
+    }).catch((error) => console.error("Crypto invoice email failed:", error));
+  }
+
   return payment;
 }
+
+paymentRouter.get(
+  "/nowpayments/pending",
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const payment = await prisma.payment.findFirst({
+      where: {
+        userId: req.user!.id,
+        provider: "nowpayments",
+        status: "PENDING",
+        order: { status: "PENDING" }
+      },
+      include: { order: { include: { challenge: true, payments: true } } },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (!payment?.order) {
+      sendSuccess(res, { checkout: null });
+      return;
+    }
+
+    const metadata = (payment.metadata as Record<string, unknown> | null) ?? {};
+    sendSuccess(res, {
+      checkout: {
+        provider: "nowpayments",
+        paymentId: payment.providerPaymentId,
+        status: String(metadata.payment_status ?? payment.status),
+        payAddress: typeof metadata.pay_address === "string" ? metadata.pay_address : undefined,
+        payAmount: typeof metadata.pay_amount === "number" ? metadata.pay_amount : undefined,
+        payCurrency: typeof metadata.pay_currency === "string" ? metadata.pay_currency : undefined,
+        priceAmount: typeof metadata.price_amount === "number" ? metadata.price_amount : Number(payment.amount),
+        priceCurrency: typeof metadata.price_currency === "string" ? metadata.price_currency : payment.currency.toLowerCase(),
+        order: payment.order
+      }
+    });
+  })
+);
 
 paymentRouter.get(
   "/nowpayments/:paymentId/status",
@@ -134,6 +194,72 @@ paymentRouter.get(
       order: updatedOrder,
       status: status.payment_status,
       mappedStatus: syncedPayment.status
+    });
+  })
+);
+
+paymentRouter.post(
+  "/nowpayments/:paymentId/cancel",
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const payment = await prisma.payment.findFirst({
+      where: { provider: "nowpayments", providerPaymentId: req.params.paymentId, userId: req.user!.id },
+      include: { order: { include: { challenge: true } } }
+    });
+    if (!payment) throw new HttpError(404, "Crypto payment not found");
+    if (payment.status === "SUCCEEDED" || payment.order?.status === "PAID") {
+      throw new HttpError(409, "Confirmed crypto payments cannot be cancelled.");
+    }
+
+    let providerStatus: Awaited<ReturnType<typeof getNowPaymentStatus>> | null = null;
+    try {
+      providerStatus = await getNowPaymentStatus(req.params.paymentId);
+      const mappedProviderStatus = mapNowPaymentStatus(providerStatus.payment_status);
+      if (mappedProviderStatus === "SUCCEEDED") {
+        await syncNowPayment(req.params.paymentId, providerStatus.payment_status, providerStatus);
+        throw new HttpError(409, "This crypto payment has already been confirmed and cannot be cancelled.");
+      }
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      console.warn(`NOWPayments status check failed before cancel: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    const updatedPayment = await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "FAILED",
+        metadata: {
+          ...((payment.metadata as Record<string, unknown> | null) ?? {}),
+          providerStatusAtCancel: providerStatus?.payment_status ?? null,
+          cancelledByUser: true,
+          cancelledAt: new Date().toISOString()
+        }
+      }
+    });
+
+    const updatedOrder = payment.orderId
+      ? await prisma.order.update({
+          where: { id: payment.orderId },
+          data: { status: "CANCELLED" },
+          include: { challenge: true, payments: true }
+        })
+      : null;
+
+    if (payment.order) {
+      await prisma.notification.create({
+        data: {
+          userId: payment.userId,
+          title: "Crypto checkout cancelled",
+          message: `${payment.order.challenge.name} crypto checkout was cancelled. No invoice will be sent unless a payment is later confirmed by the provider.`,
+          type: "CHALLENGE"
+        }
+      });
+    }
+
+    sendSuccess(res, {
+      payment: updatedPayment,
+      order: updatedOrder,
+      message: "Crypto checkout cancelled"
     });
   })
 );

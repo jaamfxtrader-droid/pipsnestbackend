@@ -100,7 +100,7 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [androidAppUrl, setAndroidAppUrl] = useState(defaultSiteSettings.androidAppUrl);
+  const [siteSettings, setSiteSettings] = useState(defaultSiteSettings);
   const user = useAuthStore((state) => state.user);
   const setAuth = useAuthStore((state) => state.setAuth);
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -130,7 +130,7 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
     let cancelled = false;
 
     getSiteSettings().then((siteSettings) => {
-      if (!cancelled) setAndroidAppUrl(siteSettings.androidAppUrl);
+      if (!cancelled) setSiteSettings(siteSettings);
     });
 
     return () => {
@@ -251,29 +251,47 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
                 <PwaInstallButton label="" className="h-11 w-11 px-0" />
               </SidebarTooltip>
               <SidebarTooltip label="Google Play">
-                <Link
-                  href={androidAppUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="grid h-11 w-11 place-items-center rounded-lg text-[10px] font-black text-primary transition hover:bg-primary/10 hover:text-blue-700 dark:text-blue-200 dark:hover:bg-white/10"
-                  aria-label="Open Google Play"
-                >
-                  Play
-                </Link>
+                {siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
+                  <Link href={siteSettings.androidAppUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center rounded-lg text-[10px] font-black text-primary transition hover:bg-primary/10 hover:text-blue-700 dark:hover:bg-white/10">
+                    Play
+                  </Link>
+                ) : (
+                  <span className="grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg text-[10px] font-black text-primary opacity-50">Soon</span>
+                )}
+              </SidebarTooltip>
+              <SidebarTooltip label="App Store">
+                {siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
+                  <Link href={siteSettings.iosAppUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center rounded-lg text-[10px] font-black text-primary transition hover:bg-primary/10 hover:text-blue-700 dark:hover:bg-white/10">
+                    iOS
+                  </Link>
+                ) : (
+                  <span className="grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg text-[10px] font-black text-primary opacity-50">Soon</span>
+                )}
               </SidebarTooltip>
             </div>
           ) : (
             <div className="grid gap-2 px-1">
               <PwaInstallButton label="Install app" className="w-full justify-center" />
-              <Link
-                href={androidAppUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90"
-                aria-label="Download on Google Play"
-              >
-                <Image src="/play-store-badge.svg" alt="Download on Google Play" width={154} height={46} className="h-9 w-auto" />
-              </Link>
+              {siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
+                <Link href={siteSettings.androidAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on Google Play">
+                  <Image src="/play-store-badge.svg" alt="Download on Google Play" width={154} height={46} className="h-9 w-auto" />
+                </Link>
+              ) : (
+                <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
+                  <Image src="/play-store-badge.svg" alt="Google Play coming soon" width={154} height={46} className="h-9 w-auto" />
+                  <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
+                </span>
+              )}
+              {siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
+                <Link href={siteSettings.iosAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on the App Store">
+                  <Image src="/app-store-badge.svg" alt="Download on the App Store" width={154} height={46} className="h-9 w-auto" />
+                </Link>
+              ) : (
+                <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
+                  <Image src="/app-store-badge.svg" alt="App Store coming soon" width={154} height={46} className="h-9 w-auto" />
+                  <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
+                </span>
+              )}
             </div>
           )}
           {collapsed ? (
@@ -318,9 +336,9 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
       </aside>
 
       <div className={cn("min-h-screen transition-[padding] duration-300", collapsed ? "lg:pl-20" : "lg:pl-72")}>
-        <header className="sticky top-0 z-30 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex w-full items-center justify-end gap-3">
-            <div className="inline-flex items-center rounded-2xl border border-slate-200 bg-white/85 p-2 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-[#07152d]/85 lg:hidden">
+        <header className="sticky top-0 z-30 px-3 py-3 sm:px-6 lg:px-8">
+          <div className="flex w-full items-center justify-between gap-2 sm:gap-3 lg:justify-end">
+            <div className="inline-flex min-w-0 items-center rounded-2xl border border-slate-200 bg-white/85 p-1.5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-[#07152d]/85 lg:hidden">
               <BrandLogo compact />
             </div>
             <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white/85 p-1.5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-[#07152d]/85 lg:inline-flex">
@@ -330,11 +348,11 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
               <NotificationBell />
               <ProfileMenu variant={variant} compact />
             </div>
-            <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/85 p-1.5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-[#07152d]/85 lg:hidden">
+            <div className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/85 p-1 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-[#07152d]/85 min-[390px]:gap-2 min-[390px]:p-1.5 lg:hidden">
               <ProfileMenu variant={variant} compact />
               <NotificationBell />
-              <Button type="button" variant="ghost" className="h-12 w-12 rounded-full p-0" aria-label="Open menu" title="Open menu" onClick={() => setMobileMenuOpen(true)}>
-                <Menu className="h-7 w-7 stroke-[2.6]" />
+              <Button type="button" variant="ghost" className="h-11 w-11 rounded-full p-0 min-[390px]:h-12 min-[390px]:w-12" aria-label="Open menu" title="Open menu" onClick={() => setMobileMenuOpen(true)}>
+                <Menu className="h-6 w-6 stroke-[2.6] min-[390px]:h-7 min-[390px]:w-7" />
               </Button>
             </div>
           </div>
@@ -351,8 +369,8 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
             <aside className="absolute right-0 top-0 flex max-h-dvh w-[min(88vw,23rem)] flex-col overflow-hidden border-l border-slate-200 bg-white/90 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#07152d]/95">
               <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10">
                 <BrandLogo compact />
-                <Button type="button" variant="ghost" className="h-10 w-10 rounded-full p-0" aria-label="Close menu" title="Close menu" onClick={() => setMobileMenuOpen(false)}>
-                  <X className="h-5 w-5" />
+                <Button type="button" variant="ghost" className="h-12 w-12 rounded-full p-0" aria-label="Close menu" title="Close menu" onClick={() => setMobileMenuOpen(false)}>
+                  <X className="h-7 w-7 stroke-[2.5]" />
                 </Button>
               </div>
 
@@ -394,15 +412,26 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
 
                 <div className="mt-5 grid gap-2 px-1">
                   <PwaInstallButton label="Install app" className="w-full justify-center" />
-                  <Link
-                    href={androidAppUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90"
-                    aria-label="Download on Google Play"
-                  >
-                    <Image src="/play-store-badge.svg" alt="Download on Google Play" width={154} height={46} className="h-9 w-auto" />
-                  </Link>
+                  {siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
+                    <Link href={siteSettings.androidAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on Google Play">
+                      <Image src="/play-store-badge.svg" alt="Download on Google Play" width={154} height={46} className="h-9 w-auto" />
+                    </Link>
+                  ) : (
+                    <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
+                      <Image src="/play-store-badge.svg" alt="Google Play coming soon" width={154} height={46} className="h-9 w-auto" />
+                      <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
+                    </span>
+                  )}
+                  {siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
+                    <Link href={siteSettings.iosAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on the App Store">
+                      <Image src="/app-store-badge.svg" alt="Download on the App Store" width={154} height={46} className="h-9 w-auto" />
+                    </Link>
+                  ) : (
+                    <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
+                      <Image src="/app-store-badge.svg" alt="App Store coming soon" width={154} height={46} className="h-9 w-auto" />
+                      <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-5 rounded-lg bg-slate-50/75 p-3 ring-1 ring-slate-200/70 dark:bg-white/[0.04] dark:ring-white/10">

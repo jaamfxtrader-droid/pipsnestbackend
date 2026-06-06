@@ -8,6 +8,8 @@ type MailInput = {
   subject: string;
   html: string;
   text: string;
+  from?: string;
+  replyTo?: string;
 };
 
 type SmtpOptionsWithFamily = SMTPTransport.Options & {
@@ -45,7 +47,7 @@ function getSmtpErrorDetails(error: unknown) {
 }
 
 async function sendWithResend(input: MailInput) {
-  const from = env.RESEND_FROM ?? env.MAIL_FROM ?? env.SMTP_USER;
+  const from = input.from ?? env.RESEND_FROM ?? env.MAIL_FROM ?? env.SMTP_USER;
 
   if (!env.RESEND_API_KEY || !from) {
     console.warn("Resend is not configured. Skipping email:", input.subject);
@@ -62,6 +64,7 @@ async function sendWithResend(input: MailInput) {
       body: JSON.stringify({
         from,
         to: input.to,
+        reply_to: input.replyTo,
         subject: input.subject,
         html: input.html,
         text: input.text
@@ -87,7 +90,7 @@ async function sendWithSmtp(input: MailInput) {
   const host = env.SMTP_HOST;
   const user = env.SMTP_USER;
   const pass = env.SMTP_PASS;
-  const from = env.MAIL_FROM ?? user;
+  const from = input.from ?? env.MAIL_FROM ?? user;
 
   if (!host || !user || !pass || !from) {
     console.warn("SMTP is not configured. Skipping email:", input.subject);
@@ -116,6 +119,7 @@ async function sendWithSmtp(input: MailInput) {
     await transporter.sendMail({
       from,
       to: input.to,
+      replyTo: input.replyTo,
       subject: input.subject,
       text: input.text,
       html: input.html

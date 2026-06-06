@@ -5,6 +5,8 @@ function generateOtp(length = 6) {
   return Array.from({ length }, () => randomInt(0, 10)).join("");
 }
 
+const EMAIL_LOGO_URL = "https://pipnestmarkets.com/logo-icon.png";
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -30,7 +32,12 @@ export async function sendSecurityOtpEmail({
     <div style="margin:0;padding:32px;background:#f4f8ff;font-family:Arial,sans-serif;color:#0f172a;">
       <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dbe7ff;border-radius:18px;overflow:hidden;">
         <div style="padding:28px 30px;background:#061126;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+              <td><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="PipNest Markets" style="display:block;border-radius:12px;background:#ffffff;" /></td>
+              <td style="text-align:right;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</td>
+            </tr>
+          </table>
           <h1 style="margin:14px 0 0;font-size:26px;line-height:1.25;">${safeAction} OTP</h1>
         </div>
         <div style="padding:30px;">

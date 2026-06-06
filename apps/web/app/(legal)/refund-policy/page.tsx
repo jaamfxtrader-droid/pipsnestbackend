@@ -1,5 +1,13 @@
 import { LegalPage } from "@/components/layout/legal-page";
 import { refundSections } from "@/lib/legal-content";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: "Refund Policy",
+  description: "Review PipNest Markets refund policy for challenge fees, duplicate payments, technical issues, account violations, and exceptional refund reviews.",
+  path: "/refund-policy",
+  keywords: ["refund policy", "challenge fee refund", "duplicate payment"]
+});
 
 export default function RefundPolicyPage() {
   return (

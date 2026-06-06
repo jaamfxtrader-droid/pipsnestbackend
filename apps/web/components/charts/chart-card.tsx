@@ -8,7 +8,7 @@ export function ChartCard() {
     <div className="rounded-lg border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="mb-5">
         <h3 className="font-semibold">Equity Curve</h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Dummy MT5 statistics for the current challenge.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">MT5-ready statistics for the current challenge.</p>
       </div>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">

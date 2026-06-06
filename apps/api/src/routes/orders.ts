@@ -6,7 +6,7 @@ import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 import { getTopUpBalance } from "../services/topup.service.js";
-import { sendSecurityOtpEmail } from "../services/security-email.service.js";
+import { money, sendTransactionEmail } from "../services/transaction-email.service.js";
 import { createNowPayment } from "../services/nowpayments.service.js";
 import { makeOrderNumber } from "../utils/user.js";
 
@@ -127,12 +127,23 @@ orderRouter.post(
       }
     });
     const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { name: true, email: true } });
-    if (user) {
-      void sendSecurityOtpEmail({
-        user,
-        action: "challenge purchase",
-        details: `${challenge.name} ${req.body.paymentMethod === "TOPUP_BALANCE" ? "purchased" : "checkout started"} for $${total.toFixed(2)}.`
-      }).catch((error) => console.error("Challenge purchase OTP email failed:", error));
+    if (user && req.body.paymentMethod === "TOPUP_BALANCE") {
+      void sendTransactionEmail({
+        to: user.email,
+        name: user.name,
+        subject: `Challenge purchase receipt ${order.orderNumber} | PipNest Markets`,
+        title: "Challenge purchase confirmed",
+        intro: `${challenge.name} was purchased using your top-up balance.`,
+        statusLabel: "Paid",
+        amount: money(total),
+        rows: [
+          { label: "Order number", value: order.orderNumber },
+          { label: "Challenge", value: challenge.name },
+          { label: "Payment method", value: "Top-up balance" },
+          { label: "Purchase date", value: order.createdAt.toISOString() }
+        ],
+        footerNote: "Your challenge order has been marked paid in your PipNest Markets dashboard."
+      }).catch((error) => console.error("Challenge purchase receipt email failed:", error));
     }
 
     if (req.body.paymentMethod === "CRYPTO") {

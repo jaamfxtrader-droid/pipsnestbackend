@@ -1,6 +1,14 @@
 import { CheckCircle2, Clock, Wallet } from "lucide-react";
 import { PayoutCard } from "@/components/dashboard/payout-card";
 import { getCmsPage, getCmsSection } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: "Payouts",
+  description: "Explore PipNest Markets payout workflow, payout tracking, trader dashboard ledger, and funded account withdrawal review process.",
+  path: "/payouts",
+  keywords: ["funded trader payouts", "profit split", "payout tracking"]
+});
 
 export default async function PayoutsPage() {
   const page = await getCmsPage("payouts");

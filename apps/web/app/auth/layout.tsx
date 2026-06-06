@@ -3,6 +3,9 @@ import Link from "next/link";
 import { AuthSideVisual } from "@/components/auth/auth-side-visual";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { privateAreaMetadata } from "@/lib/seo";
+
+export const metadata = privateAreaMetadata;
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (

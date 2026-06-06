@@ -2,11 +2,15 @@
   "id": "/",
   "name": "PipNest Markets",
   "short_name": "PipNest Markets",
-  "description": "Trader dashboard, funding challenges, payouts, affiliates, and admin workflows in a secure PWA.",
+  "description": "PipNest Markets provides funded trader challenges, MT4/MT5-ready account workflows, payouts, affiliate tools, and a secure trader dashboard.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui", "browser"],
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  "handle_links": "preferred",
   "background_color": "#061126",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
@@ -18,10 +22,22 @@
       "purpose": "any"
     },
     {
+      "src": "/pwa-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/pwa-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [

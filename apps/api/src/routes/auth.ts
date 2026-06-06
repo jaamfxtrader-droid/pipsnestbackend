@@ -47,6 +47,7 @@ const identityAvailabilitySchema = z.object({
 const OTP_TTL_MINUTES = 10;
 const TWO_FACTOR_TRUST_DAYS = 2;
 const TWO_FACTOR_TRUST_MS = TWO_FACTOR_TRUST_DAYS * 24 * 60 * 60 * 1000;
+const EMAIL_LOGO_URL = "https://pipnestmarkets.com/logo-icon.png";
 
 function normalizePhone(phone: string) {
   const compact = phone.replace(/[\s().-]/g, "");
@@ -161,7 +162,12 @@ function otpTemplate({
     <div style="margin:0;padding:32px;background:#f4f8ff;font-family:Arial,sans-serif;color:#0f172a;">
       <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dbe7ff;border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(37,99,235,0.14);">
         <div style="padding:28px 30px;background:#061126;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+              <td><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="PipNest Markets" style="display:block;border-radius:12px;background:#ffffff;" /></td>
+              <td style="text-align:right;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</td>
+            </tr>
+          </table>
           <h1 style="margin:14px 0 0;font-size:26px;line-height:1.25;">${escapeHtml(title)}</h1>
         </div>
         <div style="padding:30px;">
@@ -186,7 +192,12 @@ function noticeTemplate({ title, name, message }: { title: string; name: string;
     <div style="margin:0;padding:32px;background:#f4f8ff;font-family:Arial,sans-serif;color:#0f172a;">
       <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dbe7ff;border-radius:18px;overflow:hidden;">
         <div style="padding:28px 30px;background:#061126;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+              <td><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="PipNest Markets" style="display:block;border-radius:12px;background:#ffffff;" /></td>
+              <td style="text-align:right;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</td>
+            </tr>
+          </table>
           <h1 style="margin:14px 0 0;font-size:26px;line-height:1.25;">${escapeHtml(title)}</h1>
         </div>
         <div style="padding:30px;">

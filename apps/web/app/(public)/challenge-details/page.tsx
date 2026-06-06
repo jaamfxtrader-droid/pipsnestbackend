@@ -1,5 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { getCmsPage, getCmsSection } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: "Challenge Details",
+  description: "Review PipNest Markets challenge rules, profit targets, drawdown limits, minimum trading days, and funded trader evaluation requirements.",
+  path: "/challenge-details",
+  keywords: ["challenge rules", "drawdown rules", "profit target"]
+});
 
 const rules = [
   ["Profit target", "8% to 10% depending on account size"],

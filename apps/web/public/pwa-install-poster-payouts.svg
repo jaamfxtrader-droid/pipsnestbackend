@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="720" viewBox="0 0 420 720" role="img" aria-label="PipNest Markets payout tracking install preview">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset=".48" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#064e3b"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".06"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#00111f" flood-opacity=".36"/>
+    </filter>
+  </defs>
+  <rect width="420" height="720" rx="34" fill="url(#bg)"/>
+  <path d="M0 520c68-52 122-82 184-44 74 45 122 68 236 2v242H0z" fill="#22c55e" opacity=".16"/>
+  <path d="M0 594c90-48 156-38 218-12 54 23 103 18 202-38v176H0z" fill="#60a5fa" opacity=".14"/>
+  <g filter="url(#shadow)">
+    <rect x="34" y="36" width="352" height="652" rx="30" fill="#07152d" stroke="#ffffff" stroke-opacity=".15"/>
+    <rect x="58" y="62" width="72" height="72" rx="22" fill="#ffffff"/>
+    <image href="/logo-icon.png" x="70" y="74" width="48" height="48" preserveAspectRatio="xMidYMid meet"/>
+    <text x="146" y="84" fill="#dbeafe" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800">PipNest Markets</text>
+    <text x="146" y="112" fill="#86efac" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Payout and transaction view</text>
+    <text x="58" y="184" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900">Payout</text>
+    <text x="58" y="230" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900">Tracking</text>
+    <text x="58" y="272" fill="#dcfce7" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Follow payouts, top-ups,</text>
+    <text x="58" y="298" fill="#dcfce7" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">invoices and affiliate rewards.</text>
+    <rect x="58" y="346" width="304" height="122" rx="22" fill="url(#panel)" stroke="#86efac" stroke-opacity=".2"/>
+    <text x="80" y="386" fill="#86efac" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="900">AVAILABLE BALANCE</text>
+    <text x="80" y="430" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900">$0.00</text>
+    <rect x="58" y="492" width="304" height="52" rx="16" fill="#ffffff" opacity=".11"/>
+    <circle cx="88" cy="518" r="12" fill="#22c55e"/>
+    <text x="112" y="524" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800">Crypto invoice pending</text>
+    <rect x="58" y="562" width="304" height="52" rx="16" fill="#ffffff" opacity=".11"/>
+    <circle cx="88" cy="588" r="12" fill="#60a5fa"/>
+    <text x="112" y="594" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800">Payout request approved</text>
+  </g>
+</svg>

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { BadgeCheck, ChevronDown, LayoutDashboard, LogOut, Settings, UserCircle } from "lucide-react";
 import { firstAllowedAdminHref } from "@/lib/admin-permissions";
 import { useTranslation } from "@/lib/use-translation";
@@ -29,6 +30,8 @@ export function ProfileMenu({ variant = "public", compact = false }: ProfileMenu
   const router = useRouter();
   const { tx } = useTranslation();
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const fallbackName = variant === "admin" ? "Pipnest Admin" : "Demo Trader";
@@ -41,6 +44,10 @@ export function ProfileMenu({ variant = "public", compact = false }: ProfileMenu
   const profileHref = variant === "admin" ? "/admin/settings" : "/dashboard/profile";
   const homeHref = variant === "admin" ? firstAllowedAdminHref(user) ?? "/admin" : "/dashboard";
   const showProfileSettings = variant !== "admin" || user?.role === "SUPER_ADMIN";
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   function handleLogout() {
     logout(variant === "admin" ? "admin" : "user");
@@ -59,6 +66,7 @@ export function ProfileMenu({ variant = "public", compact = false }: ProfileMenu
         title="Profile"
         onClick={() => {
           if (variant === "public") router.push(profileHref);
+          else if (typeof window !== "undefined" && window.innerWidth < 1024) setMobileProfileOpen(true);
         }}
       >
         <span className="relative shrink-0">
@@ -83,8 +91,8 @@ export function ProfileMenu({ variant = "public", compact = false }: ProfileMenu
         )}
       </button>
 
-      <div className="invisible pointer-events-none absolute right-0 top-full z-50 w-72 origin-top translate-y-3 scale-95 pt-3 opacity-0 transition duration-200 ease-out group-hover:visible group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100">
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_22px_60px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[#07152d]">
+      <div className="invisible pointer-events-none fixed left-3 right-3 top-[4.65rem] z-[95] hidden max-w-[calc(100vw-1.5rem)] origin-top translate-y-3 scale-95 opacity-0 transition duration-200 ease-out group-hover:visible group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100 sm:left-auto sm:right-4 sm:w-[min(22rem,calc(100vw-2rem))] lg:absolute lg:left-auto lg:right-0 lg:top-full lg:block lg:w-72 lg:pt-3">
+        <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-[0_22px_60px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[#07152d]">
           <div className="border-b border-slate-200 p-4 dark:border-white/10">
             <div className="flex items-center gap-3">
               <span className="relative shrink-0">
@@ -138,6 +146,39 @@ export function ProfileMenu({ variant = "public", compact = false }: ProfileMenu
           </div>
         </div>
       </div>
+      {mounted && mobileProfileOpen ? createPortal(
+        <div className="fixed inset-0 z-[9998] grid place-items-end bg-slate-950/55 p-3 backdrop-blur-sm lg:hidden">
+          <button type="button" aria-label="Close profile menu" className="absolute inset-0" onClick={() => setMobileProfileOpen(false)} />
+          <div className="relative w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#07152d]">
+            <div className="flex items-center gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+              <span className="relative shrink-0">
+                {avatarUrl ? <img src={avatarUrl} alt="" className="h-14 w-14 rounded-full bg-slate-200 object-cover" /> : <span className="grid h-14 w-14 place-items-center rounded-full bg-slate-950 text-sm font-black text-white dark:bg-white dark:text-slate-950">{initials}</span>}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-base font-semibold text-slate-950 dark:text-white">{name}</span>
+                <span className="block truncate text-sm text-slate-500 dark:text-slate-400">{email}</span>
+              </span>
+            </div>
+            <div className="grid gap-2 p-3">
+              <Link href={homeHref} onClick={() => setMobileProfileOpen(false)} className="flex h-12 items-center gap-3 rounded-md px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10">
+                <LayoutDashboard className="h-4 w-4" />
+                {tx("Dashboard")}
+              </Link>
+              {showProfileSettings ? (
+                <Link href={profileHref} onClick={() => setMobileProfileOpen(false)} className="flex h-12 items-center gap-3 rounded-md px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10">
+                  {variant === "admin" ? <Settings className="h-4 w-4" /> : <UserCircle className="h-4 w-4" />}
+                  {tx(variant === "admin" ? "Admin settings" : "Profile settings")}
+                </Link>
+              ) : null}
+              <button type="button" onClick={() => { setMobileProfileOpen(false); setConfirmLogout(true); }} className="flex h-12 items-center gap-3 rounded-md px-3 text-left text-sm font-semibold text-loss hover:bg-loss/10">
+                <LogOut className="h-4 w-4" />
+                {tx("Logout")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
       <Modal open={confirmLogout} title="Confirm Logout" onClose={() => setConfirmLogout(false)}>
         <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{tx("Are you sure you want to logout from this session?")}</p>
         <div className="mt-5 flex justify-end gap-3">

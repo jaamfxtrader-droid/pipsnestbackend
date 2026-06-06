@@ -293,10 +293,10 @@ export const cmsPageDrafts: CmsPage[] = [
   {
     slug: "risk-disclosure",
     title: "Risk Disclosure",
-    content: "Trading involves risk. PipNest Markets challenge screens use simulated accounts and dummy MT4/MT5 statistics until a real Manager API integration is connected.",
+    content: "Trading involves risk. PipNest Markets challenge screens use simulated accounts and MT4/MT5-ready statistics while live Manager API integration is configured.",
     published: true,
     sections: [
-      section("body", "Body", "Legal", "Risk Disclosure", "Trading involves risk. PipNest Markets challenge screens use simulated accounts and dummy MT4/MT5 statistics until a real Manager API integration is connected.", 1)
+      section("body", "Body", "Legal", "Risk Disclosure", "Trading involves risk. PipNest Markets challenge screens use simulated accounts and MT4/MT5-ready statistics while live Manager API integration is configured.", 1)
     ]
   },
   {

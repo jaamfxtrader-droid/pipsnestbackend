@@ -4,6 +4,7 @@ import { affiliateRouter, adminAffiliateRouter } from "./affiliate.js";
 import { authRouter } from "./auth.js";
 import { adminChallengeRouter, challengeRouter } from "./challenges.js";
 import { cmsRouter } from "./cms.js";
+import { contactRouter } from "./contact.js";
 import { adminKycRouter, kycRouter } from "./kyc.js";
 import { notificationRouter } from "./notifications.js";
 import { adminOrderRouter, orderRouter } from "./orders.js";
@@ -31,6 +32,7 @@ apiRouter.use("/affiliate", affiliateRouter);
 apiRouter.use("/kyc", kycRouter);
 apiRouter.use("/notifications", notificationRouter);
 apiRouter.use("/cms", cmsRouter);
+apiRouter.use("/contact", contactRouter);
 
 apiRouter.use("/admin", adminRouter);
 apiRouter.use("/admin/challenges", adminChallengeRouter);

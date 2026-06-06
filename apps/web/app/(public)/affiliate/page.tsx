@@ -2,6 +2,14 @@ import { Copy, Megaphone, Users } from "lucide-react";
 import { AuthAwareLink } from "@/components/auth/auth-aware-link";
 import { Button } from "@/components/ui/button";
 import { getCmsPage, getCmsSection } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: "Affiliate Program",
+  description: "Join the PipNest Markets affiliate program to refer traders, track conversions, and monitor commission performance from your dashboard.",
+  path: "/affiliate",
+  keywords: ["prop firm affiliate", "trading affiliate program", "referral commissions"]
+});
 
 export default async function AffiliatePage() {
   const page = await getCmsPage("affiliate");

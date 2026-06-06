@@ -46,7 +46,7 @@ const paymentBadges = [
   { label: "Mastercard", icon: CreditCard, className: "border-rose-400/25 bg-rose-500/10 text-rose-700 dark:text-rose-200" },
   { label: "Bank", icon: Landmark, className: "border-emerald-400/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200" },
   { label: "Crypto", icon: Wallet, className: "border-cyan-400/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200" },
-  { label: "Stripe", icon: CreditCard, className: "border-violet-400/25 bg-violet-500/10 text-violet-700 dark:text-violet-200" },
+  { label: "Airtm", icon: Wallet, className: "border-violet-400/25 bg-violet-500/10 text-violet-700 dark:text-violet-200" },
   { label: "Skrill", icon: Wallet, className: "border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-200" }
 ];
 
@@ -134,9 +134,28 @@ export function Footer() {
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("footer.download")}</p>
-          <Link href={settings.androidAppUrl} target="_blank" rel="noreferrer" aria-label="Download on Google Play" className="mt-3 inline-flex transition hover:opacity-90">
-            <Image src="/play-store-badge.svg" alt="Download on Google Play" width={210} height={62} className="h-auto max-w-full" />
-          </Link>
+          <div className="mt-3 grid gap-2">
+            {settings.androidAppEnabled && !settings.androidAppComingSoon ? (
+              <Link href={settings.androidAppUrl} target="_blank" rel="noreferrer" aria-label="Download on Google Play" className="inline-flex transition hover:opacity-90">
+                <Image src="/play-store-badge.svg" alt="Download on Google Play" width={210} height={62} className="h-auto max-w-full" />
+              </Link>
+            ) : (
+              <span className="relative inline-flex opacity-55">
+                <Image src="/play-store-badge.svg" alt="Google Play coming soon" width={210} height={62} className="h-auto max-w-full" />
+                <span className="absolute -right-2 -top-2 rounded-full bg-warning px-2 py-1 text-[10px] font-black uppercase text-slate-950">Coming soon</span>
+              </span>
+            )}
+            {settings.iosAppEnabled && !settings.iosAppComingSoon ? (
+              <Link href={settings.iosAppUrl} target="_blank" rel="noreferrer" aria-label="Download on the App Store" className="inline-flex transition hover:opacity-90">
+                <Image src="/app-store-badge.svg" alt="Download on the App Store" width={210} height={62} className="h-auto max-w-full" />
+              </Link>
+            ) : (
+              <span className="relative inline-flex opacity-55">
+                <Image src="/app-store-badge.svg" alt="App Store coming soon" width={210} height={62} className="h-auto max-w-full" />
+                <span className="absolute -right-2 -top-2 rounded-full bg-warning px-2 py-1 text-[10px] font-black uppercase text-slate-950">Coming soon</span>
+              </span>
+            )}
+          </div>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400 md:text-right">{t("footer.copy")}</p>
       </div>

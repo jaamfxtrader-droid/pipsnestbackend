@@ -64,7 +64,7 @@ export function ToastViewport() {
   }, [dismiss, toasts]);
 
   return (
-    <div className="fixed right-4 top-4 z-[80] flex w-[min(360px,calc(100vw-32px))] flex-col gap-3">
+    <div className="pointer-events-none fixed right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[2147483647] flex w-[min(360px,calc(100vw-24px))] flex-col gap-3 sm:right-4 sm:top-[calc(env(safe-area-inset-top)+1rem)] sm:w-[min(360px,calc(100vw-32px))]">
       {toasts.map((toast) => {
         const tone = toast.tone ?? "info";
         const Icon = toneIcons[tone];
@@ -74,7 +74,7 @@ export function ToastViewport() {
             key={toast.id}
             role="status"
             aria-live={tone === "error" ? "assertive" : "polite"}
-            className={cn("flex gap-3 rounded-lg border p-3 text-sm backdrop-blur", tones[tone])}
+            className={cn("pointer-events-auto flex gap-3 rounded-lg border p-3 text-sm backdrop-blur", tones[tone])}
           >
             <span className={cn("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full", toneAccents[tone])}>
               <Icon className="h-4 w-4" />

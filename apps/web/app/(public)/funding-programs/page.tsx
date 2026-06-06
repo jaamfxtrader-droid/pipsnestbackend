@@ -1,6 +1,14 @@
 import { PricingCard } from "@/components/dashboard/pricing-card";
 import { getCmsPage, getCmsSection } from "@/lib/cms";
 import { fundingPrograms } from "@/lib/mock-data";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: "Funding Programs",
+  description: "Compare PipNest Markets funded trader challenge account sizes, rules, profit targets, drawdown limits, and MT4/MT5-ready workflows.",
+  path: "/funding-programs",
+  keywords: ["funding programs", "challenge account sizes", "prop firm pricing"]
+});
 
 export default async function FundingProgramsPage() {
   const page = await getCmsPage("funding-programs");

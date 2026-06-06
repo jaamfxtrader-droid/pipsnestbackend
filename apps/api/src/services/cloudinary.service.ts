@@ -75,7 +75,7 @@ export async function uploadAvatarImage(value: string | null | undefined) {
     return await uploadDataFile(value, "avatars", "image");
   } catch (error) {
     console.error(`Avatar image upload failed: ${getErrorMessage(error)}`);
-    return null;
+    return value;
   }
 }
 

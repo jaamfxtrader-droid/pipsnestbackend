@@ -5,7 +5,7 @@ import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { uploadManualFundingAccountImage, uploadTopUpProof } from "../services/cloudinary.service.js";
-import { sendSecurityOtpEmail } from "../services/security-email.service.js";
+import { money, sendTransactionEmail } from "../services/transaction-email.service.js";
 import { buildTopUpOverview, getTopUpBalance } from "../services/topup.service.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
@@ -83,11 +83,22 @@ topUpRouter.post(
     });
     const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { name: true, email: true } });
     if (user) {
-      void sendSecurityOtpEmail({
-        user,
-        action: "top-up request",
-        details: `Manual top-up request submitted for $${Number(req.body.amount).toFixed(2)}. Estimated approval time is ${approvalWindow}.`
-      }).catch((error) => console.error("Top-up request OTP email failed:", error));
+      void sendTransactionEmail({
+        to: user.email,
+        name: user.name,
+        subject: `Top-up request received | PipNest Markets`,
+        title: "Top-up request received",
+        intro: "Your manual top-up request has been submitted and is pending admin approval.",
+        statusLabel: "Pending approval",
+        amount: money(req.body.amount),
+        rows: [
+          { label: "Top-up reference", value: topUp.reference ?? topUp.id },
+          { label: "Funding account", value: manualAccount.label },
+          { label: "Transaction ID", value: topUp.transactionId ?? "Submitted" },
+          { label: "Estimated approval", value: approvalWindow }
+        ],
+        footerNote: "Your top-up balance updates after admin approval."
+      }).catch((error) => console.error("Top-up request email failed:", error));
     }
 
     sendSuccess(res, { topUp, message: `Manual top-up request submitted. Balance will update after admin approval within ${approvalWindow}.` }, 201);
@@ -214,7 +225,7 @@ adminTopUpRouter.put(
         adminNote: req.body.adminNote?.trim() || null,
         processedAt: req.body.status === "APPROVED" || req.body.status === "REJECTED" ? new Date() : null
       },
-      include: { manualFundingAccount: true }
+      include: { manualFundingAccount: true, user: true }
     });
 
     await prisma.notification.create({
@@ -230,6 +241,29 @@ adminTopUpRouter.put(
         type: req.body.status === "APPROVED" ? "SUCCESS" : req.body.status === "REJECTED" ? "WARNING" : "INFO"
       }
     });
+
+    void sendTransactionEmail({
+      to: topUp.user.email,
+      name: topUp.user.name,
+      subject: `Top-up ${topUp.status.toLowerCase()} | PipNest Markets`,
+      title: req.body.status === "APPROVED" ? "Top-up credited" : req.body.status === "REJECTED" ? "Top-up rejected" : "Top-up status updated",
+      intro:
+        req.body.status === "APPROVED"
+          ? "Your top-up has been approved and credited to your dashboard balance."
+          : req.body.status === "REJECTED"
+            ? "Your top-up request was reviewed and rejected."
+            : "Your top-up request status has been updated.",
+      statusLabel: topUp.status,
+      amount: money(topUp.amount),
+      rows: [
+        { label: "Top-up reference", value: topUp.reference ?? topUp.id },
+        { label: "Funding account", value: topUp.manualFundingAccount?.label ?? "Manual funding" },
+        { label: "Transaction ID", value: topUp.transactionId ?? "Not provided" },
+        { label: "Processed at", value: topUp.processedAt?.toISOString() ?? new Date().toISOString() },
+        ...(topUp.adminNote ? [{ label: "Admin note", value: topUp.adminNote }] : [])
+      ],
+      footerNote: req.body.status === "APPROVED" ? "Your credited balance can now be used for eligible challenge purchases." : undefined
+    }).catch((error) => console.error("Top-up status email failed:", error));
 
     sendSuccess(res, { topUp, message: "Top-up status updated" });
   })

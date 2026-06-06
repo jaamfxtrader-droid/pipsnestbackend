@@ -4,7 +4,7 @@ import { payoutRequestSchema } from "@pipnest/shared";
 import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { sendSecurityOtpEmail } from "../services/security-email.service.js";
+import { money, sendTransactionEmail } from "../services/transaction-email.service.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
 const payoutStatusSchema = z.object({
@@ -204,11 +204,21 @@ payoutRouter.post(
       }
     });
     if (user) {
-      void sendSecurityOtpEmail({
-        user,
-        action: "payout request",
-        details: `Manual payout request submitted for $${Number(req.body.amount).toFixed(2)}.`
-      }).catch((error) => console.error("Payout request OTP email failed:", error));
+      void sendTransactionEmail({
+        to: user.email,
+        name: user.name,
+        subject: `Payout request received | PipNest Markets`,
+        title: "Payout request received",
+        intro: "Your payout request has been submitted for admin review.",
+        statusLabel: "Pending review",
+        amount: money(req.body.amount),
+        rows: [
+          { label: "Payout ID", value: payout.id },
+          { label: "Method", value: payout.method },
+          { label: "Requested at", value: payout.requestedAt.toISOString() }
+        ],
+        footerNote: "You will receive another transaction email when your payout status changes."
+      }).catch((error) => console.error("Payout request email failed:", error));
     }
     sendSuccess(res, { payout }, 201);
   })
@@ -258,7 +268,8 @@ adminPayoutRouter.put(
         status: req.body.status,
         adminNote: req.body.adminNote,
         processedAt: ["APPROVED", "PAID", "REJECTED", "CANCELLED"].includes(req.body.status) ? new Date() : null
-      }
+      },
+      include: { user: true, tradingAccount: { include: { challenge: true } } }
     });
     await prisma.notification.create({
       data: {
@@ -268,6 +279,24 @@ adminPayoutRouter.put(
         type: "PAYOUT"
       }
     });
+    void sendTransactionEmail({
+      to: payout.user.email,
+      name: payout.user.name,
+      subject: `Payout ${payout.status.toLowerCase()} | PipNest Markets`,
+      title: "Payout status updated",
+      intro: `Your payout request is now ${payout.status.toLowerCase()}.`,
+      statusLabel: payout.status,
+      amount: money(payout.amount),
+      rows: [
+        { label: "Payout ID", value: payout.id },
+        { label: "Method", value: payout.method },
+        { label: "Trading account", value: payout.tradingAccount?.login ?? "General payout balance" },
+        { label: "Challenge", value: payout.tradingAccount?.challenge.name ?? "N/A" },
+        { label: "Processed at", value: payout.processedAt?.toISOString() ?? new Date().toISOString() },
+        ...(payout.adminNote ? [{ label: "Admin note", value: payout.adminNote }] : [])
+      ],
+      footerNote: payout.status === "PAID" ? "Your payout has been marked paid by the PipNest Markets team." : undefined
+    }).catch((error) => console.error("Payout status email failed:", error));
     sendSuccess(res, { payout });
   })
 );

@@ -131,6 +131,30 @@ function SiteSettingsPanel() {
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Google Play / Android app URL</span>
           <Input value={settings.androidAppUrl} onChange={(event) => setSettings((current) => ({ ...current, androidAppUrl: event.target.value }))} />
         </label>
+        <div className="flex flex-wrap gap-3 md:col-span-2">
+          <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold dark:border-white/10">
+            <input type="checkbox" checked={settings.androidAppEnabled} onChange={(event) => setSettings((current) => ({ ...current, androidAppEnabled: event.target.checked }))} />
+            Play Store enabled
+          </label>
+          <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold dark:border-white/10">
+            <input type="checkbox" checked={settings.androidAppComingSoon} onChange={(event) => setSettings((current) => ({ ...current, androidAppComingSoon: event.target.checked }))} />
+            Play Store coming soon
+          </label>
+        </div>
+        <label className="grid gap-2 md:col-span-2">
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Apple App Store / iOS app URL</span>
+          <Input value={settings.iosAppUrl} onChange={(event) => setSettings((current) => ({ ...current, iosAppUrl: event.target.value }))} />
+        </label>
+        <div className="flex flex-wrap gap-3 md:col-span-2">
+          <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold dark:border-white/10">
+            <input type="checkbox" checked={settings.iosAppEnabled} onChange={(event) => setSettings((current) => ({ ...current, iosAppEnabled: event.target.checked }))} />
+            App Store enabled
+          </label>
+          <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold dark:border-white/10">
+            <input type="checkbox" checked={settings.iosAppComingSoon} onChange={(event) => setSettings((current) => ({ ...current, iosAppComingSoon: event.target.checked }))} />
+            App Store coming soon
+          </label>
+        </div>
         <label className="grid gap-2">
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Instagram URL</span>
           <Input value={settings.socialLinks.instagram} onChange={(event) => updateSocialLink("instagram", event.target.value)} />

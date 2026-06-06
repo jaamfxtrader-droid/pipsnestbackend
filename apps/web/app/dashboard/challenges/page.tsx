@@ -20,14 +20,14 @@ import {
   ShieldCheck,
   Target,
   Wallet,
-  WalletCards,
-  X
+  WalletCards
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { QrCodeCard } from "@/components/ui/qr-code-card";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
 import { cn, currency } from "@/lib/utils";
@@ -174,7 +174,9 @@ export default function MyChallengesPage() {
   const [loading, setLoading] = useState(true);
   const [purchasingId, setPurchasingId] = useState("");
   const [cryptoCheckout, setCryptoCheckout] = useState<CryptoCheckout | null>(null);
+  const [confirmCancelCheckout, setConfirmCancelCheckout] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [cancellingPayment, setCancellingPayment] = useState(false);
 
   useEffect(() => {
     hydrate("user");
@@ -212,7 +214,17 @@ export default function MyChallengesPage() {
     loadData(token);
   }, [scope, token]);
 
+  useEffect(() => {
+    if (scope !== "user" || !token) return;
+    apiFetch<{ checkout: CryptoCheckout | null }>("/payments/nowpayments/pending", { token })
+      .then((data) => {
+        if (data.checkout) setCryptoCheckout(data.checkout);
+      })
+      .catch(() => undefined);
+  }, [scope, token]);
+
   const activeAccounts = useMemo(() => accounts.filter((account) => account.accountStatus !== "SUSPENDED"), [accounts]);
+  const visibleOrders = useMemo(() => orders.filter((order) => isPaidOrder(order) || terminalOrderStatuses.includes(order.status)), [orders]);
   const visiblePrograms = useMemo(
     () => challenges.filter((challenge) => programPhase(challenge) === phase).sort((left, right) => toNumber(left.accountSize) - toNumber(right.accountSize)),
     [challenges, phase]
@@ -325,6 +337,33 @@ export default function MyChallengesPage() {
     }
   }
 
+  async function cancelCryptoCheckout() {
+    if (!token || !cryptoCheckout) return;
+    setCancellingPayment(true);
+    try {
+      await apiFetch(`/payments/nowpayments/${cryptoCheckout.paymentId}/cancel`, {
+        method: "POST",
+        token
+      });
+      pushToast({
+        title: "Crypto checkout cancelled",
+        message: "Your pending crypto checkout was cancelled. You can start a new checkout anytime.",
+        tone: "info"
+      });
+      setConfirmCancelCheckout(false);
+      setCryptoCheckout(null);
+      await loadData(token);
+    } catch (error) {
+      pushToast({
+        title: "Checkout not cancelled",
+        message: error instanceof Error ? error.message : "Please check payment status before trying again.",
+        tone: "error"
+      });
+    } finally {
+      setCancellingPayment(false);
+    }
+  }
+
   function copyPaymentAddress() {
     if (!cryptoCheckout?.payAddress) return;
     navigator.clipboard?.writeText(cryptoCheckout.payAddress).then(() => {
@@ -343,7 +382,7 @@ export default function MyChallengesPage() {
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
           <div className="text-sm text-slate-500 dark:text-slate-400">Challenge orders</div>
-          <div className="mt-3 text-3xl font-black">{orders.length}</div>
+          <div className="mt-3 text-3xl font-black">{visibleOrders.length}</div>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
           <div className="text-sm text-slate-500 dark:text-slate-400">Available programs</div>
@@ -701,23 +740,16 @@ export default function MyChallengesPage() {
       </section>
 
       {cryptoCheckout ? (
-        <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#07152d]">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-5 dark:border-white/10">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4 md:items-center">
+          <div className="flex max-h-[calc(100dvh-0.75rem)] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#07152d] sm:rounded-lg">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:p-5">
               <div>
                 <p className="text-xs font-bold uppercase text-primary">NOWPayments checkout</p>
                 <h2 className="mt-1 text-xl font-semibold">{cryptoCheckout.order.challenge.name}</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setCryptoCheckout(null)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-white/10 dark:hover:text-white"
-                aria-label="Close crypto checkout"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <Badge tone={statusTone(cryptoCheckout.status)}>{cryptoCheckout.status}</Badge>
             </div>
-            <div className="grid gap-4 p-5">
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-5">
               <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="flex justify-between gap-3">
                   <span className="text-slate-500 dark:text-slate-400">Challenge price</span>
@@ -735,25 +767,38 @@ export default function MyChallengesPage() {
                 </div>
               </div>
 
-              <div className="grid gap-2">
-                <span className="text-sm font-semibold">Payment address</span>
-                <button
-                  type="button"
-                  onClick={copyPaymentAddress}
-                  className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-3 text-left text-sm transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]"
-                >
-                  <span className="min-w-0 break-all font-mono text-xs">{cryptoCheckout.payAddress ?? "Address unavailable"}</span>
-                  <Copy className="h-4 w-4 shrink-0 text-primary" />
-                </button>
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="grid gap-2">
+                  <span className="text-sm font-semibold">Payment address</span>
+                  <button
+                    type="button"
+                    onClick={copyPaymentAddress}
+                    className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-3 text-left text-sm transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]"
+                  >
+                    <span className="min-w-0 break-all font-mono text-xs">{cryptoCheckout.payAddress ?? "Address unavailable"}</span>
+                    <Copy className="h-4 w-4 shrink-0 text-primary" />
+                  </button>
+                  <div className="rounded-md border border-amber-300/40 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
+                    Only cancel if you have not sent the payment. If you already paid, use Check payment and wait for provider confirmation.
+                  </div>
+                </div>
+                {cryptoCheckout.payAddress ? (
+                  <QrCodeCard
+                    title={`${cryptoCheckout.payCurrency?.toUpperCase() ?? "Crypto"} address`}
+                    value={cryptoCheckout.payAddress}
+                    fileName={`pipnest-${cryptoCheckout.paymentId}-crypto-qr.png`}
+                    shareText="PipNest Markets crypto payment address"
+                  />
+                ) : null}
               </div>
 
               <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
                 Send the exact crypto amount to this address. After payment, click check status. The challenge will show as paid automatically when NOWPayments confirms it.
               </p>
 
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button type="button" variant="secondary" onClick={() => setCryptoCheckout(null)}>
-                  Close
+              <div className="sticky bottom-0 -mx-4 -mb-4 flex flex-col-reverse gap-3 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#07152d] sm:-mx-5 sm:-mb-5 sm:flex-row sm:justify-end sm:p-5">
+                <Button type="button" variant="danger" onClick={() => setConfirmCancelCheckout(true)}>
+                  Cancel checkout
                 </Button>
                 <Button type="button" onClick={checkCryptoPayment} disabled={checkingPayment}>
                   {checkingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
@@ -762,16 +807,35 @@ export default function MyChallengesPage() {
               </div>
             </div>
           </div>
+          {confirmCancelCheckout ? (
+            <div className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/75 p-3 backdrop-blur-sm sm:place-items-center sm:p-4">
+              <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] dark:border-white/10 dark:bg-slate-900 sm:rounded-lg">
+                <h3 className="text-lg font-semibold">Cancel crypto checkout?</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  If you have not sent crypto, you can cancel this checkout now. If payment was already sent, do not cancel. Use Check payment and wait for confirmation.
+                </p>
+                <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="secondary" onClick={() => setConfirmCancelCheckout(false)} disabled={cancellingPayment}>
+                    Keep checkout
+                  </Button>
+                  <Button type="button" variant="danger" onClick={cancelCryptoCheckout} disabled={cancellingPayment}>
+                    {cancellingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Yes, cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
         <h2 className="font-semibold">Order History</h2>
         <div className="mt-4 grid gap-3">
-          {orders.length === 0 ? (
+          {visibleOrders.length === 0 ? (
             <div className="text-sm text-slate-500 dark:text-slate-400">No challenge orders yet.</div>
           ) : (
-            orders.slice(0, 8).map((order) => (
+            visibleOrders.slice(0, 8).map((order) => (
               <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-white/10">
                 <div>
                   <div className="font-semibold">{order.challenge.name}</div>

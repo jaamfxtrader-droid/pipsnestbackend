@@ -2,6 +2,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
 export type SiteSettings = {
   androidAppUrl: string;
+  androidAppEnabled: boolean;
+  androidAppComingSoon: boolean;
+  iosAppUrl: string;
+  iosAppEnabled: boolean;
+  iosAppComingSoon: boolean;
   socialLinks: {
     instagram: string;
     youtube: string;
@@ -12,6 +17,11 @@ export type SiteSettings = {
 
 export const defaultSiteSettings: SiteSettings = {
   androidAppUrl: process.env.NEXT_PUBLIC_ANDROID_APP_URL ?? "https://play.google.com/store/apps/details?id=com.pipnestfunding.app",
+  androidAppEnabled: false,
+  androidAppComingSoon: true,
+  iosAppUrl: process.env.NEXT_PUBLIC_IOS_APP_URL ?? "https://apps.apple.com",
+  iosAppEnabled: false,
+  iosAppComingSoon: true,
   socialLinks: {
     instagram: "https://instagram.com",
     youtube: "https://youtube.com",
@@ -29,6 +39,11 @@ export function normalizeSiteSettings(value: unknown): SiteSettings {
 
   return {
     androidAppUrl: typeof input.androidAppUrl === "string" && input.androidAppUrl.trim() ? input.androidAppUrl.trim() : defaultSiteSettings.androidAppUrl,
+    androidAppEnabled: typeof input.androidAppEnabled === "boolean" ? input.androidAppEnabled : defaultSiteSettings.androidAppEnabled,
+    androidAppComingSoon: typeof input.androidAppComingSoon === "boolean" ? input.androidAppComingSoon : defaultSiteSettings.androidAppComingSoon,
+    iosAppUrl: typeof input.iosAppUrl === "string" && input.iosAppUrl.trim() ? input.iosAppUrl.trim() : defaultSiteSettings.iosAppUrl,
+    iosAppEnabled: typeof input.iosAppEnabled === "boolean" ? input.iosAppEnabled : defaultSiteSettings.iosAppEnabled,
+    iosAppComingSoon: typeof input.iosAppComingSoon === "boolean" ? input.iosAppComingSoon : defaultSiteSettings.iosAppComingSoon,
     socialLinks: {
       instagram:
         typeof socialLinks.instagram === "string" && socialLinks.instagram.trim() ? socialLinks.instagram.trim() : defaultSiteSettings.socialLinks.instagram,

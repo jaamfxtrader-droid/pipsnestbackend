@@ -1,9 +1,17 @@
 import { getCmsPage, getCmsSection } from "@/lib/cms";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: "How It Works",
+  description: "Learn how to register, choose a PipNest Markets challenge, complete payment, track MT4/MT5-ready account progress, and request payouts.",
+  path: "/how-it-works",
+  keywords: ["how funded trading works", "prop firm process", "trader evaluation steps"]
+});
 
 const steps = [
   ["Register", "Create a trader account with secure bcrypt-backed authentication on the API."],
-  ["Purchase", "Create an order, apply a coupon, and start the placeholder payment flow."],
-  ["Trade", "Use dummy MT4/MT5 data while tracking profit target and drawdown rules."],
+  ["Purchase", "Create an order, apply a coupon, and follow the secure payment flow."],
+  ["Trade", "Track profit target and drawdown rules with MT4/MT5-ready account analytics."],
   ["Scale", "Request payouts and grow affiliate referrals through the dashboard."]
 ];
 

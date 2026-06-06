@@ -100,6 +100,7 @@ const cmsSchema = z.object({
 
 export const adminRouter = Router();
 adminRouter.use(authenticate, requireRole("ADMIN", "SUPER_ADMIN"));
+const EMAIL_LOGO_URL = "https://pipnestmarkets.com/logo-icon.png";
 
 const defaultAdminRoleTemplates = [
   { name: "Super Admin", permissions: ["admin:all", "cms:all"] },
@@ -164,13 +165,25 @@ async function sendUserStatusNotice(input: {
   const untilText = input.blockedUntil ? ` This restriction is currently set until ${input.blockedUntil.toISOString()}.` : "";
   const text = `Hi ${input.name}, your PipNest Markets account has been ${statusLabel}.${untilText} Reason: ${input.reason}`;
   const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
-      <h2>Your account has been ${escapeHtml(statusLabel)}</h2>
-      <p>Hi ${escapeHtml(input.name)},</p>
-      <p>Your PipNest Markets account has been ${escapeHtml(statusLabel)} by the admin team.${escapeHtml(untilText)}</p>
-      <p><strong>Reason:</strong> ${escapeHtml(input.reason)}</p>
-      <p>While this restriction is active, payout requests are not available.</p>
-      <p>If you believe this is a mistake, please contact support.</p>
+    <div style="margin:0;padding:32px;background:#f4f8ff;font-family:Arial,sans-serif;color:#0f172a;">
+      <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dbe7ff;border-radius:18px;overflow:hidden;">
+        <div style="padding:28px 30px;background:#061126;color:#ffffff;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;">
+            <tr>
+              <td><img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="PipNest Markets" style="display:block;border-radius:12px;background:#ffffff;" /></td>
+              <td style="text-align:right;font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#93c5fd;">PipNest Markets</td>
+            </tr>
+          </table>
+          <h1 style="margin:0;font-size:24px;line-height:1.25;">Your account has been ${escapeHtml(statusLabel)}</h1>
+        </div>
+        <div style="padding:30px;line-height:1.7;">
+          <p>Hi ${escapeHtml(input.name)},</p>
+          <p>Your PipNest Markets account has been ${escapeHtml(statusLabel)} by the admin team.${escapeHtml(untilText)}</p>
+          <p><strong>Reason:</strong> ${escapeHtml(input.reason)}</p>
+          <p>While this restriction is active, payout requests are not available.</p>
+          <p>If you believe this is a mistake, please contact support.</p>
+        </div>
+      </div>
     </div>
   `;
 

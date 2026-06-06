@@ -130,8 +130,8 @@ export function Navbar() {
           <aside className="absolute right-0 top-0 flex max-h-dvh w-[min(88vw,23rem)] flex-col overflow-hidden border-l border-white/60 bg-white/90 shadow-[0_30px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#07152d]/95">
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200/70 p-4 dark:border-white/10">
               <BrandLogo />
-              <Button variant="ghost" className="h-10 w-10 rounded-full p-0" aria-label="Close menu" title="Close menu" onClick={closeMenu}>
-                <X className="h-5 w-5" />
+              <Button variant="ghost" className="h-12 w-12 rounded-full p-0" aria-label="Close menu" title="Close menu" onClick={closeMenu}>
+                <X className="h-7 w-7 stroke-[2.5]" />
               </Button>
             </div>
 
