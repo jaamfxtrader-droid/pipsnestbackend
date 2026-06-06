@@ -1,4 +1,5 @@
-import { LegalPage } from "@/components/layout/legal-page";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
 import { refundSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
@@ -9,13 +10,14 @@ export const metadata = pageMetadata({
   keywords: ["refund policy", "challenge fee refund", "duplicate payment"]
 });
 
-export default function RefundPolicyPage() {
+export default async function RefundPolicyPage() {
+  const page = await getCmsPage("refund-policy");
   return (
     <LegalPage
-      title="Refund Policy"
+      title={page?.title ?? "Refund Policy"}
       eyebrow="Payments"
-      summary="This policy explains how challenge fees, duplicate payments, account violations, funded accounts, and exceptional refund requests are handled."
-      sections={refundSections}
+      summary={page?.content ?? "This policy explains how challenge fees, duplicate payments, account violations, funded accounts, and exceptional refund requests are handled."}
+      sections={cmsLegalSections(page, refundSections)}
     />
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, FileText, LockKeyhole, ShieldCheck } from "lucide-react";
+import type { CmsPage } from "@/lib/cms";
 import type { LegalSection } from "@/lib/legal-content";
 
 type LegalPageProps = {
@@ -15,6 +16,16 @@ const trustCards = [
   ["Policy protected", "Important restrictions are grouped into clear locked sections."],
   ["Trader responsibility", "Risk, verification, and conduct expectations stay visible."]
 ] as const;
+
+export function cmsLegalSections(page?: CmsPage, fallback: LegalSection[] = []) {
+  const visibleSections = page?.sections?.filter((section) => section.published !== false && section.isVisible !== false) ?? [];
+  if (!visibleSections.length) return fallback;
+  return visibleSections.map((section) => ({
+    title: section.title,
+    body: section.content ? [section.content] : [],
+    bullets: Array.isArray(section.metadata?.bullets) ? section.metadata.bullets : undefined
+  }));
+}
 
 export function LegalPage({ title, eyebrow = "Legal", summary, sections, children }: LegalPageProps) {
   return (

@@ -1,7 +1,7 @@
 {
   "id": "/",
   "name": "PipNest Markets",
-  "short_name": "PipNest Markets",
+  "short_name": "PipNest",
   "description": "PipNest Markets provides funded trader challenges, MT4/MT5-ready account workflows, payouts, affiliate tools, and a secure trader dashboard.",
   "start_url": "/",
   "scope": "/",
@@ -14,6 +14,7 @@
   "background_color": "#061126",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/pwa-icon-192.png",
@@ -38,6 +39,29 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/pwa-install-poster-dashboard.svg",
+      "sizes": "420x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Trader dashboard"
+    },
+    {
+      "src": "/pwa-install-poster-challenges.svg",
+      "sizes": "420x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Challenge checkout"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "PipNest Markets web app"
     }
   ],
   "shortcuts": [

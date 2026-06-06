@@ -20,9 +20,13 @@ import {
   ChevronDown,
   Copy,
   AlertCircle,
+  ExternalLink,
+  FileVideo,
   Smartphone,
   Tablet,
   Monitor,
+  Navigation,
+  Upload,
   Badge as BadgeIcon,
   X
 } from "lucide-react";
@@ -33,12 +37,44 @@ import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { getStoredAuthToken } from "@/store/auth-store";
-import type { CmsPage, CmsSection } from "@/lib/cms";
+import { cmsPageDrafts, mergeCmsPage, type CmsPage, type CmsSection } from "@/lib/cms";
 
 type EditorTab = "content" | "seo" | "styling" | "preview";
-type SectionType = "block" | "grid" | "flex" | "carousel";
+type SectionType = "block" | "grid" | "flex" | "carousel" | "media" | "split";
 type PreviewDevice = "desktop" | "tablet" | "mobile";
 type ThemeMode = "light" | "dark" | "both";
+
+const fixedPageNames: Record<string, string> = {
+  home: "Landing Page / Home Page",
+  about: "About Page",
+  contact: "Contact Page",
+  privacy: "Privacy Policy",
+  terms: "Terms & Conditions",
+  disclaimer: "Disclaimers",
+  "kyc-policy": "KYC Policy Page",
+  "refund-policy": "Refund Policy",
+  "risk-disclosure": "Risk Disclosure",
+  affiliate: "Affiliate Rules Page",
+  "layout-rules": "Layout Rules Page",
+  "challenge-details": "Rules",
+  "funding-programs": "Funding",
+  faq: "FAQ"
+};
+
+const editableSlugs = Object.keys(fixedPageNames);
+
+function pageDisplayName(page: CmsPage) {
+  return fixedPageNames[page.slug] ?? page.metadata?.navLabel ?? page.title ?? page.slug;
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function AdvancedCmsEditor() {
   const pushToast = useToast((state) => state.push);
@@ -51,6 +87,14 @@ export default function AdvancedCmsEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showNewSection, setShowNewSection] = useState(false);
+  const [showNewPage, setShowNewPage] = useState(false);
+  const [deleteSectionIndex, setDeleteSectionIndex] = useState<number | null>(null);
+  const [newPageForm, setNewPageForm] = useState({
+    title: "",
+    slug: "",
+    navLabel: "",
+    navPlacement: "footer" as "header" | "footer" | "both" | "hidden"
+  });
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [textSelection, setTextSelection] = useState({ start: 0, end: 0 });
   const [showBadgeModal, setShowBadgeModal] = useState(false);
@@ -71,7 +115,29 @@ export default function AdvancedCmsEditor() {
 
     try {
       const data = await apiFetch<{ pages: CmsPage[] }>("/admin/cms", { token });
-      const editablePages = data.pages.filter((page) => page.slug !== "site-settings");
+      const remoteBySlug = new Map(data.pages.filter((page) => page.slug !== "site-settings").map((page) => [page.slug, page]));
+      const fixedPages = editableSlugs
+        .map((slug) => {
+          const fallback = cmsPageDrafts.find((page) => page.slug === slug) ?? {
+            slug,
+            title: fixedPageNames[slug],
+            content: fixedPageNames[slug],
+            published: true,
+            sections: []
+          };
+          return mergeCmsPage(fallback, remoteBySlug.get(slug))!;
+        })
+        .map((page) => ({
+          ...page,
+          title: page.title || fixedPageNames[page.slug],
+          metadata: {
+            navLabel: fixedPageNames[page.slug],
+            navPlacement: page.slug === "home" ? "header" : "footer",
+            ...(page.metadata ?? {})
+          }
+        }));
+      const customPages = data.pages.filter((page) => page.slug !== "site-settings" && !editableSlugs.includes(page.slug));
+      const editablePages = [...fixedPages, ...customPages];
       setPages(editablePages);
       if (editablePages.length > 0) {
         setSelectedPage(editablePages[0]);
@@ -104,6 +170,86 @@ export default function AdvancedCmsEditor() {
     setDraft({ ...draft, sections: updated });
   }
 
+  function updatePageMetadata(patch: Record<string, any>) {
+    if (!draft) return;
+    setDraft({ ...draft, metadata: { ...(draft.metadata ?? {}), ...patch } });
+  }
+
+  async function handleSectionImage(file?: File) {
+    if (!file || !currentSection) return;
+    const dataUrl = await fileToDataUrl(file);
+    if (dataUrl.length > 1_500_000) {
+      pushToast({ title: "Image is too large", message: "Please choose a smaller image for this section.", tone: "error" });
+      return;
+    }
+    updateCurrentSection({ imageUrl: dataUrl });
+  }
+
+  async function handleSectionVideo(file?: File) {
+    if (!file || !currentSection) return;
+    const dataUrl = await fileToDataUrl(file);
+    if (dataUrl.length > 8_000_000) {
+      pushToast({ title: "Video is too large", message: "Please upload a shorter compressed video for this section.", tone: "error" });
+      return;
+    }
+    updateCurrentSection({
+      metadata: {
+        ...(currentSection.metadata ?? {}),
+        videoUrl: dataUrl
+      } as any
+    });
+  }
+
+  function createNewPage() {
+    const title = newPageForm.title.trim();
+    const slug = newPageForm.slug
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!title || !slug) {
+      pushToast({ title: "Page needs title and slug", message: "Add a page name and URL slug.", tone: "error" });
+      return;
+    }
+    if (pages.some((page) => page.slug === slug)) {
+      pushToast({ title: "Page already exists", message: "Use a different slug for this page.", tone: "error" });
+      return;
+    }
+    const page: CmsPage = {
+      slug,
+      title,
+      content: title,
+      metaTitle: title,
+      metaDescription: "",
+      published: true,
+      metadata: {
+        navLabel: newPageForm.navLabel.trim() || title,
+        navPlacement: newPageForm.navPlacement
+      },
+      sections: [
+        {
+          sectionKey: "intro",
+          label: "Intro",
+          eyebrow: null,
+          title,
+          content: "Add page content here.",
+          sortOrder: 1,
+          sectionType: "block",
+          published: true,
+          isVisible: true
+        }
+      ]
+    };
+    const nextPages = [...pages, page];
+    setPages(nextPages);
+    setSelectedPageIndex(nextPages.length - 1);
+    setSelectedPage(page);
+    setDraft(JSON.parse(JSON.stringify(page)));
+    setSelectedSectionIndex(0);
+    setNewPageForm({ title: "", slug: "", navLabel: "", navPlacement: "footer" });
+    setShowNewPage(false);
+  }
+
   function addSection() {
     if (!draft) return;
 
@@ -131,6 +277,7 @@ export default function AdvancedCmsEditor() {
     const updated = draft.sections.filter((_, i) => i !== index);
     setDraft({ ...draft, sections: updated });
     setSelectedSectionIndex(Math.max(0, index - 1));
+    setDeleteSectionIndex(null);
   }
 
   function moveSection(index: number, direction: "up" | "down") {
@@ -235,6 +382,7 @@ export default function AdvancedCmsEditor() {
 
       setSelectedPage(data.page);
       setDraft(data.page);
+      setPages((current) => current.map((page) => (page.slug === data.page.slug ? data.page : page)));
       pushToast({
         title: "Page saved",
         message: "CMS page has been updated successfully.",
@@ -287,12 +435,16 @@ export default function AdvancedCmsEditor() {
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
                 )}
               >
-                {page.title || page.slug}
+                {pageDisplayName(page)}
               </button>
             ))}
           </div>
           {/* Page Navigation */}
           <div className="flex gap-2 ml-4 flex-shrink-0">
+            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={() => setShowNewPage(true)}>
+              <Plus className="h-4 w-4" />
+              New page
+            </Button>
             <button
               onClick={() => selectPage(Math.max(0, selectedPageIndex - 1))}
               disabled={selectedPageIndex === 0}
@@ -379,6 +531,44 @@ export default function AdvancedCmsEditor() {
               <div className="flex-1 overflow-y-auto p-6">
                 {activeTab === "content" && (
                   <div className="space-y-6 max-w-4xl">
+                    <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                      <div className="mb-4 flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white">
+                        <Navigation className="h-4 w-4 text-primary" />
+                        Page identity and navigation
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="grid gap-2 text-sm font-semibold">
+                          CMS page name
+                          <Input value={draft?.title ?? ""} onChange={(e) => draft && setDraft({ ...draft, title: e.target.value })} />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          URL slug
+                          <Input value={draft?.slug ?? ""} disabled />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Header/Footer label
+                          <Input
+                            value={draft?.metadata?.navLabel ?? pageDisplayName(draft!)}
+                            onChange={(e) => updatePageMetadata({ navLabel: e.target.value })}
+                            placeholder="Navigation label"
+                          />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Show page link
+                          <select
+                            value={draft?.metadata?.navPlacement ?? "footer"}
+                            onChange={(e) => updatePageMetadata({ navPlacement: e.target.value })}
+                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                          >
+                            <option value="hidden">Hidden from navigation</option>
+                            <option value="footer">Footer only</option>
+                            <option value="header">Header dropdown</option>
+                            <option value="both">Header dropdown and footer</option>
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
                         Section Label
@@ -403,6 +593,8 @@ export default function AdvancedCmsEditor() {
                         <option value="grid">Grid</option>
                         <option value="flex">Flex</option>
                         <option value="carousel">Carousel</option>
+                        <option value="media">Media</option>
+                        <option value="split">Split</option>
                       </select>
                     </div>
 
@@ -522,6 +714,99 @@ export default function AdvancedCmsEditor() {
                         />
                       </div>
                     </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
+                      <h3 className="mb-4 text-sm font-black text-slate-900 dark:text-white">Section media</h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Image upload
+                          <span className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]">
+                            {currentSection.imageUrl ? <img src={currentSection.imageUrl} alt="" className="h-12 w-12 rounded-md object-cover" /> : <ImageIcon className="h-5 w-5 text-slate-400" />}
+                            <span className="font-semibold text-slate-600 dark:text-slate-300">Upload image</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="sr-only"
+                              onChange={(event) => {
+                                void handleSectionImage(event.target.files?.[0]);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Video upload
+                          <span className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]">
+                            <FileVideo className="h-5 w-5 text-slate-400" />
+                            <span className="font-semibold text-slate-600 dark:text-slate-300">
+                              {currentSection.metadata?.videoUrl ? "Replace video" : "Upload one video"}
+                            </span>
+                            <input
+                              type="file"
+                              accept="video/*"
+                              className="sr-only"
+                              onChange={(event) => {
+                                void handleSectionVideo(event.target.files?.[0]);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </span>
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Image position
+                          <select
+                            value={String(currentSection.position ?? 0)}
+                            onChange={(e) => updateCurrentSection({ position: Number(e.target.value) })}
+                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                          >
+                            <option value="0">Top</option>
+                            <option value="1">Left</option>
+                            <option value="2">Right</option>
+                            <option value="3">Bottom</option>
+                            <option value="4">Background</option>
+                          </select>
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Icon name
+                          <Input value={currentSection.iconName ?? ""} onChange={(e) => updateCurrentSection({ iconName: e.target.value || undefined })} placeholder="e.g. ShieldCheck" />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
+                      <h3 className="mb-4 text-sm font-black text-slate-900 dark:text-white">CTA button controls</h3>
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <label className="grid gap-2 text-sm font-semibold">
+                          CTA style
+                          <select
+                            value={currentSection.metadata?.ctaStyle ?? "solid"}
+                            onChange={(e) => updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ctaStyle: e.target.value } as any })}
+                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                          >
+                            <option value="solid">Background button</option>
+                            <option value="outline">Border button</option>
+                            <option value="solid-icon">Background with icon</option>
+                            <option value="outline-icon">Border with icon</option>
+                          </select>
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          CTA icon
+                          <Input value={currentSection.metadata?.ctaIcon ?? ""} onChange={(e) => updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ctaIcon: e.target.value } as any })} placeholder="ArrowRight" />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Link target
+                          <select
+                            value={currentSection.metadata?.ctaTarget ?? "_self"}
+                            onChange={(e) => updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ctaTarget: e.target.value } as any })}
+                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                          >
+                            <option value="_self">Same tab</option>
+                            <option value="_blank">New tab</option>
+                            <option value="new-window">New window</option>
+                          </select>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -529,17 +814,17 @@ export default function AdvancedCmsEditor() {
                   <div className="space-y-6 max-w-4xl">
                     <div className="p-4 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50">
                       <p className="text-sm text-blue-800 dark:text-blue-200">
-                        SEO metadata for this section. This helps with search engine optimization.
+                        Page SEO metadata controls search title, keywords, and social preview data for the selected CMS page.
                       </p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
-                        Meta Title
+                        Page SEO Title
                       </label>
                       <Input
-                        value={currentSection.metadata?.metaTitle || ""}
-                        onChange={(e) => updateCurrentSection({ metadata: { ...currentSection.metadata, metaTitle: e.target.value } as any })}
+                        value={draft?.metaTitle || ""}
+                        onChange={(e) => draft && setDraft({ ...draft, metaTitle: e.target.value })}
                         placeholder="Page title for search engines"
                         maxLength={60}
                       />
@@ -548,11 +833,11 @@ export default function AdvancedCmsEditor() {
 
                     <div>
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
-                        Meta Description
+                        Page SEO Description
                       </label>
                       <textarea
-                        value={currentSection.metadata?.metaDescription || ""}
-                        onChange={(e) => updateCurrentSection({ metadata: { ...currentSection.metadata, metaDescription: e.target.value } as any })}
+                        value={draft?.metaDescription || ""}
+                        onChange={(e) => draft && setDraft({ ...draft, metaDescription: e.target.value })}
                         placeholder="Page description for search engines"
                         maxLength={160}
                         className="w-full h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
@@ -562,12 +847,24 @@ export default function AdvancedCmsEditor() {
 
                     <div>
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
-                        Meta Keywords
+                        Short keywords
                       </label>
                       <Input
-                        value={currentSection.metadata?.metaKeywords || ""}
-                        onChange={(e) => updateCurrentSection({ metadata: { ...currentSection.metadata, metaKeywords: e.target.value } as any })}
-                        placeholder="keyword1, keyword2, keyword3"
+                        value={draft?.metadata?.shortKeywords || ""}
+                        onChange={(e) => updatePageMetadata({ shortKeywords: e.target.value })}
+                        placeholder="Up to 8 short keywords, comma separated"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
+                        Long keywords
+                      </label>
+                      <textarea
+                        value={draft?.metadata?.longKeywords || ""}
+                        onChange={(e) => updatePageMetadata({ longKeywords: e.target.value })}
+                        placeholder="Up to 4 long-tail SEO keyword phrases"
+                        className="w-full h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
                       />
                     </div>
 
@@ -579,8 +876,8 @@ export default function AdvancedCmsEditor() {
                           OG Image URL
                         </label>
                         <Input
-                          value={currentSection.metadata?.ogImage || ""}
-                          onChange={(e) => updateCurrentSection({ metadata: { ...currentSection.metadata, ogImage: e.target.value } as any })}
+                          value={draft?.metadata?.ogImage || ""}
+                          onChange={(e) => updatePageMetadata({ ogImage: e.target.value })}
                           placeholder="https://..."
                         />
                       </div>
@@ -590,8 +887,8 @@ export default function AdvancedCmsEditor() {
                           OG Title
                         </label>
                         <Input
-                          value={currentSection.metadata?.ogTitle || ""}
-                          onChange={(e) => updateCurrentSection({ metadata: { ...currentSection.metadata, ogTitle: e.target.value } as any })}
+                          value={draft?.metadata?.ogTitle || ""}
+                          onChange={(e) => updatePageMetadata({ ogTitle: e.target.value })}
                           placeholder="Title for social sharing"
                         />
                       </div>
@@ -601,8 +898,8 @@ export default function AdvancedCmsEditor() {
                           OG Description
                         </label>
                         <textarea
-                          value={currentSection.metadata?.ogDescription || ""}
-                          onChange={(e) => updateCurrentSection({ metadata: { ...currentSection.metadata, ogDescription: e.target.value } as any })}
+                          value={draft?.metadata?.ogDescription || ""}
+                          onChange={(e) => updatePageMetadata({ ogDescription: e.target.value })}
                           placeholder="Description for social sharing"
                           className="w-full h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
                         />
@@ -726,11 +1023,23 @@ export default function AdvancedCmsEditor() {
                           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
                             {currentSection.title}
                           </h2>
+                          {currentSection.imageUrl ? (
+                            <img src={currentSection.imageUrl} alt="" className="mb-6 max-h-72 w-full rounded-lg object-cover" />
+                          ) : null}
+                          {currentSection.metadata?.videoUrl ? (
+                            <video src={currentSection.metadata.videoUrl} className="mb-6 max-h-72 w-full rounded-lg bg-slate-950" controls />
+                          ) : null}
                           <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 whitespace-pre-wrap">
                             {currentSection.content}
                           </p>
                           {currentSection.ctaLabel && (
-                            <button className="bg-primary text-white px-6 py-2 rounded-md font-semibold hover:bg-primary/90">
+                            <button className={cn(
+                              "inline-flex items-center gap-2 px-6 py-2 rounded-md font-semibold",
+                              currentSection.metadata?.ctaStyle?.includes("outline")
+                                ? "border border-primary text-primary"
+                                : "bg-primary text-white hover:bg-primary/90"
+                            )}>
+                              {currentSection.metadata?.ctaStyle?.includes("icon") ? <ExternalLink className="h-4 w-4" /> : null}
                               {currentSection.ctaLabel}
                             </button>
                           )}
@@ -763,7 +1072,7 @@ export default function AdvancedCmsEditor() {
                   <Button
                     variant="secondary"
                     className="h-8 w-8 p-0 px-0"
-                    onClick={() => deleteSection(selectedSectionIndex)}
+                    onClick={() => setDeleteSectionIndex(selectedSectionIndex)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -799,6 +1108,67 @@ export default function AdvancedCmsEditor() {
         </div>
       </Modal>
 
+      <Modal open={showNewPage} title="Create CMS Page" onClose={() => setShowNewPage(false)}>
+        <div className="grid gap-4 p-4">
+          <label className="grid gap-2 text-sm font-semibold">
+            Page title
+            <Input
+              value={newPageForm.title}
+              onChange={(e) => {
+                const title = e.target.value;
+                setNewPageForm((current) => ({
+                  ...current,
+                  title,
+                  slug: current.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+                  navLabel: current.navLabel || title
+                }));
+              }}
+              placeholder="New page name"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            URL slug
+            <Input value={newPageForm.slug} onChange={(e) => setNewPageForm((current) => ({ ...current, slug: e.target.value }))} placeholder="new-page" />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Navigation label
+            <Input value={newPageForm.navLabel} onChange={(e) => setNewPageForm((current) => ({ ...current, navLabel: e.target.value }))} placeholder="Footer/header text" />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold">
+            Show page link
+            <select
+              value={newPageForm.navPlacement}
+              onChange={(e) => setNewPageForm((current) => ({ ...current, navPlacement: e.target.value as typeof current.navPlacement }))}
+              className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+            >
+              <option value="footer">Footer only</option>
+              <option value="header">Header dropdown</option>
+              <option value="both">Header dropdown and footer</option>
+              <option value="hidden">Hidden from navigation</option>
+            </select>
+          </label>
+          <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
+            <Button variant="secondary" onClick={() => setShowNewPage(false)}>Cancel</Button>
+            <Button onClick={createNewPage}>Create Page</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={deleteSectionIndex !== null} title="Delete Section" onClose={() => setDeleteSectionIndex(null)}>
+        <div className="p-4">
+          <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+            This section will be removed from the page after you save changes. Are you sure you want to delete it?
+          </p>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setDeleteSectionIndex(null)}>Cancel</Button>
+            <Button variant="danger" onClick={() => deleteSection(deleteSectionIndex ?? 0)}>
+              <Trash2 className="h-4 w-4" />
+              Delete section
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Badge Modal */}
       <Modal open={showBadgeModal} title="Add Badge to Title" onClose={() => setShowBadgeModal(false)}>
         <div className="p-4 space-y-4">
@@ -820,7 +1190,7 @@ export default function AdvancedCmsEditor() {
             <Input
               value={badgeIcon}
               onChange={(e) => setBadgeIcon(e.target.value)}
-              placeholder="e.g., ⭐, 🎯, 💡"
+              placeholder="e.g., star, target, lightbulb"
             />
           </div>
 

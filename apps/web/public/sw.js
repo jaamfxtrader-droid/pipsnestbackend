@@ -1,5 +1,14 @@
-const CACHE_NAME = "pipnest-pwa-v1";
-const APP_SHELL = ["/", "/auth/login", "/auth/register", "/manifest.webmanifest", "/pwa-icon-192.png", "/pwa-icon-512.png"];
+const CACHE_NAME = "pipnest-pwa-v2";
+const APP_SHELL = [
+  "/",
+  "/auth/login",
+  "/auth/register",
+  "/manifest.webmanifest",
+  "/pwa-icon-192.png",
+  "/pwa-icon-512.png",
+  "/pwa-maskable-192.png",
+  "/pwa-maskable-512.png"
+];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

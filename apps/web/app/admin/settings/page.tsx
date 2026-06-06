@@ -78,13 +78,13 @@ function fileToDataUrl(file: File) {
       const source = String(reader.result);
       const image = new Image();
       image.onload = () => {
-        const maxSide = 512;
+        const maxSide = 384;
         const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(image.width * scale));
         canvas.height = Math.max(1, Math.round(image.height * scale));
         canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.82));
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
       };
       image.onerror = () => resolve(source);
       image.src = source;
@@ -148,6 +148,7 @@ export default function SettingsPage() {
     avatarUrl: "",
     password: ""
   });
+  const [profileFormDirty, setProfileFormDirty] = useState(false);
   const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>([]);
   const [roleForm, setRoleForm] = useState({ name: "", permissions: [] as string[] });
 
@@ -162,7 +163,7 @@ export default function SettingsPage() {
   );
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || profileFormDirty || savingProfile) return;
     setProfileForm({
       name: currentUser.name,
       username: currentUser.username ?? "",
@@ -170,7 +171,7 @@ export default function SettingsPage() {
       avatarUrl: currentUser.avatarUrl ?? "",
       password: ""
     });
-  }, [currentUser]);
+  }, [currentUser, profileFormDirty, savingProfile]);
 
   useEffect(() => {
     const authToken = getAuthToken(token);
@@ -224,15 +225,29 @@ export default function SettingsPage() {
     }));
   }
 
+  function updateProfileForm(values: Partial<typeof profileForm>) {
+    setProfileFormDirty(true);
+    setProfileForm((current) => ({ ...current, ...values }));
+  }
+
   async function handleProfileAvatar(file?: File) {
     if (!file) return;
     const dataUrl = await fileToDataUrl(file);
+    if (dataUrl.length > 750_000) {
+      pushToast({ title: "Avatar image is too large", message: "Please choose a smaller image.", tone: "error" });
+      return;
+    }
+    setProfileFormDirty(true);
     setProfileForm((current) => ({ ...current, avatarUrl: dataUrl }));
   }
 
   async function handleEditAvatar(file?: File) {
     if (!file) return;
     const dataUrl = await fileToDataUrl(file);
+    if (dataUrl.length > 750_000) {
+      pushToast({ title: "Avatar image is too large", message: "Please choose a smaller image.", tone: "error" });
+      return;
+    }
     setEditForm((current) => ({ ...current, avatarUrl: dataUrl }));
   }
 
@@ -263,7 +278,14 @@ export default function SettingsPage() {
 
       setAuth(authToken, data.user, { remember: rememberCurrentSession(), scope: "admin" });
       setAdmins((current) => current.map((admin) => (admin.id === data.user.id ? data.user : admin)));
-      setProfileForm((current) => ({ ...current, password: "" }));
+      setProfileForm({
+        name: data.user.name,
+        username: data.user.username ?? "",
+        email: data.user.email,
+        avatarUrl: data.user.avatarUrl ?? "",
+        password: ""
+      });
+      setProfileFormDirty(false);
       pushToast({ title: "Profile updated", message: "Super admin profile settings were saved.", tone: "success" });
     } catch (error) {
       pushToast({
@@ -468,22 +490,30 @@ export default function SettingsPage() {
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold">
               Full name
-              <Input value={profileForm.name} onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))} />
+              <Input value={profileForm.name} onChange={(event) => updateProfileForm({ name: event.target.value })} />
             </label>
             <label className="grid gap-2 text-sm font-semibold">
               Username
-              <Input value={profileForm.username} onChange={(event) => setProfileForm((current) => ({ ...current, username: event.target.value }))} />
+              <Input value={profileForm.username} onChange={(event) => updateProfileForm({ username: event.target.value })} />
             </label>
             <label className="grid gap-2 text-sm font-semibold">
               Email
-              <Input type="email" value={profileForm.email} onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))} />
+              <Input type="email" value={profileForm.email} onChange={(event) => updateProfileForm({ email: event.target.value })} />
             </label>
             <label className="grid gap-2 text-sm font-semibold">
               Avatar image
               <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]">
                 {profileForm.avatarUrl ? <img src={profileForm.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" /> : <ImageIcon className="h-5 w-5 text-slate-400" />}
                 <span className="font-semibold text-slate-600 dark:text-slate-300">Upload avatar</span>
-                <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleProfileAvatar(event.target.files?.[0])} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => {
+                    void handleProfileAvatar(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
               </label>
             </label>
             <label className="grid gap-2 text-sm font-semibold md:col-span-2">
@@ -493,7 +523,7 @@ export default function SettingsPage() {
                 <PasswordInput
                   className="pl-9"
                   value={profileForm.password}
-                  onChange={(event) => setProfileForm((current) => ({ ...current, password: event.target.value }))}
+                  onChange={(event) => updateProfileForm({ password: event.target.value })}
                   placeholder="Leave blank to keep current password"
                   autoComplete="new-password"
                 />
@@ -642,7 +672,15 @@ export default function SettingsPage() {
               <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]">
                 {editForm.avatarUrl ? <img src={editForm.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" /> : <ImageIcon className="h-5 w-5 text-slate-400" />}
                 <span className="font-semibold text-slate-600 dark:text-slate-300">Upload avatar</span>
-                <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleEditAvatar(event.target.files?.[0])} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => {
+                    void handleEditAvatar(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
               </label>
             </label>
             <label className="grid gap-2 text-sm font-semibold">

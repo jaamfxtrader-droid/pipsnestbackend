@@ -39,13 +39,13 @@ function fileToDataUrl(file: File) {
       const source = String(reader.result);
       const image = new Image();
       image.onload = () => {
-        const maxSide = 512;
+        const maxSide = 384;
         const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(image.width * scale));
         canvas.height = Math.max(1, Math.round(image.height * scale));
         canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.82));
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
       };
       image.onerror = () => resolve(source);
       image.src = source;
@@ -84,6 +84,7 @@ export default function ProfileSettingsPage() {
     avatarUrl: "",
     twoFactorEnabled: false
   });
+  const [profileFormDirty, setProfileFormDirty] = useState(false);
   const [passwordForm, setPasswordForm] = useState<PasswordForm>({
     currentPassword: "",
     newPassword: "",
@@ -105,7 +106,7 @@ export default function ProfileSettingsPage() {
   }, [scope, setAuth, token]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || profileFormDirty || profileSaving) return;
     setProfileForm({
       name: user.name ?? "",
       email: user.email ?? "",
@@ -113,7 +114,7 @@ export default function ProfileSettingsPage() {
       avatarUrl: user.avatarUrl ?? "",
       twoFactorEnabled: Boolean(user.twoFactorEnabled)
     });
-  }, [user]);
+  }, [profileFormDirty, profileSaving, user]);
 
   const initials = useMemo(() => initialsFor(profileForm.name || user?.name || "PN") || "PN", [profileForm.name, user?.name]);
   const verified = user?.kycStatus === "APPROVED";
@@ -132,10 +133,12 @@ export default function ProfileSettingsPage() {
       });
       return;
     }
+    setProfileFormDirty(true);
     setProfileForm((current) => ({ ...current, avatarUrl: dataUrl }));
   }
 
   function updateProfileField<Key extends keyof ProfileForm>(key: Key, value: ProfileForm[Key]) {
+    setProfileFormDirty(true);
     setProfileForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -159,6 +162,14 @@ export default function ProfileSettingsPage() {
         })
       });
       setAuth(token, data.user, { remember: isRememberedAuth("user"), scope: "user" });
+      setProfileForm({
+        name: data.user.name ?? "",
+        email: data.user.email ?? "",
+        phone: data.user.phone ?? "",
+        avatarUrl: data.user.avatarUrl ?? "",
+        twoFactorEnabled: Boolean(data.user.twoFactorEnabled)
+      });
+      setProfileFormDirty(false);
       pushToast({ title: "Profile updated", message: data.message, tone: "success" });
     } catch (error) {
       pushToast({
@@ -349,7 +360,15 @@ export default function ProfileSettingsPage() {
               <span className="absolute bottom-2 right-2 grid h-8 w-8 place-items-center rounded-md bg-primary text-white shadow-lg transition group-hover/avatar:scale-105">
                 <Camera className="h-4 w-4" />
               </span>
-              <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleAvatar(event.target.files?.[0])} />
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(event) => {
+                  void handleAvatar(event.target.files?.[0]);
+                  event.currentTarget.value = "";
+                }}
+              />
             </label>
 
             <div className="grid flex-1 gap-4">

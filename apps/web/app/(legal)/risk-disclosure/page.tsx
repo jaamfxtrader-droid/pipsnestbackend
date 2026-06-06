@@ -1,4 +1,5 @@
-import { LegalPage } from "@/components/layout/legal-page";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
 import { riskSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
@@ -9,13 +10,14 @@ export const metadata = pageMetadata({
   keywords: ["risk disclosure", "simulated trading risk", "forex risk"]
 });
 
-export default function RiskDisclosurePage() {
+export default async function RiskDisclosurePage() {
+  const page = await getCmsPage("risk-disclosure");
   return (
     <LegalPage
-      title="Risk Disclosure"
+      title={page?.title ?? "Risk Disclosure"}
       eyebrow="Risk"
-      summary="Trading financial markets involves substantial risk. PipNest Markets accounts operate in a simulated environment for educational and evaluation purposes."
-      sections={riskSections}
+      summary={page?.content ?? "Trading financial markets involves substantial risk. PipNest Markets accounts operate in a simulated environment for educational and evaluation purposes."}
+      sections={cmsLegalSections(page, riskSections)}
     />
   );
 }

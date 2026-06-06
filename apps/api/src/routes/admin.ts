@@ -78,7 +78,7 @@ const cmsSectionSchema = z.object({
   ctaLabel: z.string().optional().nullable(),
   ctaHref: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().default(0),
-  sectionType: z.enum(["block", "grid", "flex", "carousel"]).default("block").optional(),
+  sectionType: z.enum(["block", "grid", "flex", "carousel", "media", "split"]).default("block").optional(),
   imageUrl: z.string().optional().nullable(),
   iconName: z.string().optional().nullable(),
   colorScheme: z.string().optional().nullable(),
@@ -94,9 +94,12 @@ const cmsSchema = z.object({
   content: z.string().min(5),
   metaTitle: z.string().optional(),
   metaDescription: z.string().optional(),
+  metadata: z.record(z.any()).optional().nullable(),
   published: z.boolean().optional(),
   sections: z.array(cmsSectionSchema).optional()
 });
+
+const CMS_PAGE_SETTINGS_SECTION = "__page_settings";
 
 export const adminRouter = Router();
 adminRouter.use(authenticate, requireRole("ADMIN", "SUPER_ADMIN"));
@@ -143,6 +146,15 @@ async function assertUniqueIdentity(userId: string, values: { email?: string; us
 
 function pagePermission(slug: string) {
   return `page:${slug}`;
+}
+
+function serializeCmsPage<T extends { sections?: Array<{ sectionKey: string; metadata: unknown }> }>(page: T) {
+  const settings = page.sections?.find((section) => section.sectionKey === CMS_PAGE_SETTINGS_SECTION);
+  return {
+    ...page,
+    metadata: (settings?.metadata as Record<string, unknown> | null) ?? null,
+    sections: page.sections?.filter((section) => section.sectionKey !== CMS_PAGE_SETTINGS_SECTION) ?? []
+  };
 }
 
 function escapeHtml(value: string) {
@@ -858,7 +870,7 @@ adminRouter.get(
       include: { sections: { orderBy: { sortOrder: "asc" } } },
       orderBy: { updatedAt: "desc" }
     });
-    sendSuccess(res, { pages });
+    sendSuccess(res, { pages: pages.map(serializeCmsPage) });
   })
 );
 
@@ -889,8 +901,44 @@ adminRouter.post(
       }
     });
 
+    await prisma.cmsSection.upsert({
+      where: {
+        pageSlug_sectionKey: {
+          pageSlug: req.body.slug,
+          sectionKey: CMS_PAGE_SETTINGS_SECTION
+        }
+      },
+      update: {
+        label: "Page Settings",
+        title: "Page Settings",
+        content: "Hidden CMS page settings",
+        metadata: req.body.metadata ?? {},
+        published: false,
+        updatedById: req.user!.id
+      },
+      create: {
+        pageId: page.id,
+        pageSlug: req.body.slug,
+        sectionKey: CMS_PAGE_SETTINGS_SECTION,
+        label: "Page Settings",
+        title: "Page Settings",
+        content: "Hidden CMS page settings",
+        sortOrder: -1,
+        metadata: req.body.metadata ?? {},
+        published: false,
+        updatedById: req.user!.id
+      }
+    });
+
     if (req.body.sections) {
       const sections = req.body.sections as z.infer<typeof cmsSectionSchema>[];
+      const sectionKeys = sections.map((section) => section.sectionKey);
+      await prisma.cmsSection.deleteMany({
+        where: {
+          pageSlug: req.body.slug,
+          sectionKey: { notIn: [...sectionKeys, CMS_PAGE_SETTINGS_SECTION] }
+        }
+      });
       await Promise.all(
         sections.map((section) =>
           prisma.cmsSection.upsert({
@@ -908,6 +956,13 @@ adminRouter.post(
               ctaLabel: section.ctaLabel ?? null,
               ctaHref: section.ctaHref ?? null,
               sortOrder: section.sortOrder,
+              sectionType: section.sectionType ?? "block",
+              imageUrl: section.imageUrl ?? null,
+              iconName: section.iconName ?? null,
+              colorScheme: section.colorScheme ?? null,
+              position: section.position ?? 0,
+              metadata: section.metadata ?? undefined,
+              isVisible: section.isVisible ?? true,
               published: section.published ?? req.body.published ?? true,
               updatedById: req.user!.id
             },
@@ -922,6 +977,13 @@ adminRouter.post(
               ctaLabel: section.ctaLabel ?? null,
               ctaHref: section.ctaHref ?? null,
               sortOrder: section.sortOrder,
+              sectionType: section.sectionType ?? "block",
+              imageUrl: section.imageUrl ?? null,
+              iconName: section.iconName ?? null,
+              colorScheme: section.colorScheme ?? null,
+              position: section.position ?? 0,
+              metadata: section.metadata ?? undefined,
+              isVisible: section.isVisible ?? true,
               published: section.published ?? req.body.published ?? true,
               updatedById: req.user!.id
             }
@@ -934,7 +996,7 @@ adminRouter.post(
       where: { slug: req.body.slug },
       include: { sections: { orderBy: { sortOrder: "asc" } } }
     });
-    sendSuccess(res, { page: savedPage });
+    sendSuccess(res, { page: serializeCmsPage(savedPage) });
   })
 );
 

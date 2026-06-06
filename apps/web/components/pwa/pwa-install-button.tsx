@@ -11,6 +11,12 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
+declare global {
+  interface Window {
+    __pipnestBeforeInstallPrompt?: BeforeInstallPromptEvent;
+  }
+}
+
 const slides = [
   {
     image: "/pwa-install-poster-dashboard.svg",
@@ -33,7 +39,26 @@ const slides = [
 function isStandaloneApp() {
   if (typeof window === "undefined") return false;
   const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
-  return window.matchMedia("(display-mode: standalone)").matches || navigatorWithStandalone.standalone === true;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    navigatorWithStandalone.standalone === true ||
+    window.localStorage.getItem("pipnest:pwa-installed") === "1"
+  );
+}
+
+function getStoredInstallPrompt() {
+  if (typeof window === "undefined") return null;
+  return window.__pipnestBeforeInstallPrompt ?? null;
+}
+
+async function ensurePwaReady() {
+  if (typeof window === "undefined") return;
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    await registration.update().catch(() => undefined);
+    await navigator.serviceWorker.ready.catch(() => undefined);
+  }
+  await fetch("/manifest.webmanifest", { cache: "no-store" }).catch(() => undefined);
 }
 
 export function PwaInstallButton({ label = "Other Install", className }: { label?: string; className?: string }) {
@@ -49,24 +74,35 @@ export function PwaInstallButton({ label = "Other Install", className }: { label
   useEffect(() => {
     setMounted(true);
     setInstalled(isStandaloneApp());
+    setInstallPrompt(getStoredInstallPrompt());
 
     function handleBeforeInstallPrompt(event: Event) {
       event.preventDefault();
+      window.__pipnestBeforeInstallPrompt = event as BeforeInstallPromptEvent;
       if (!isStandaloneApp()) setInstallPrompt(event as BeforeInstallPromptEvent);
+    }
+
+    function handleStoredPrompt() {
+      if (!isStandaloneApp()) setInstallPrompt(getStoredInstallPrompt());
     }
 
     function handleInstalled() {
       setInstalled(true);
       setInstallPrompt(null);
+      window.localStorage.setItem("pipnest:pwa-installed", "1");
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("pipnest-beforeinstallprompt", handleStoredPrompt);
+    window.addEventListener("pipnest-appinstalled", handleInstalled);
     window.addEventListener("appinstalled", handleInstalled);
     const media = window.matchMedia("(display-mode: standalone)");
     media.addEventListener?.("change", handleInstalled);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("pipnest-beforeinstallprompt", handleStoredPrompt);
+      window.removeEventListener("pipnest-appinstalled", handleInstalled);
       window.removeEventListener("appinstalled", handleInstalled);
       media.removeEventListener?.("change", handleInstalled);
     };
@@ -88,10 +124,12 @@ export function PwaInstallButton({ label = "Other Install", className }: { label
     }
 
     setPreparingInstall(true);
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
-      navigator.serviceWorker.ready.catch(() => undefined);
-    }
+    ensurePwaReady()
+      .then(() => {
+        const prompt = getStoredInstallPrompt();
+        if (prompt) setInstallPrompt(prompt);
+      })
+      .catch(() => undefined);
 
     const timer = window.setTimeout(() => setPreparingInstall(false), 9000);
     return () => window.clearTimeout(timer);
@@ -100,8 +138,15 @@ export function PwaInstallButton({ label = "Other Install", className }: { label
   if (!mounted || installed) return null;
 
   async function handleInstall() {
-    const prompt = installPrompt;
-    if (!prompt) return;
+    let prompt = installPrompt ?? getStoredInstallPrompt();
+    if (!prompt) {
+      setPreparingInstall(true);
+      await ensurePwaReady().catch(() => undefined);
+      prompt = getStoredInstallPrompt();
+      setPreparingInstall(false);
+      if (!prompt) return;
+      setInstallPrompt(prompt);
+    }
 
     setInstalling(true);
     setProgress(8);
@@ -112,7 +157,11 @@ export function PwaInstallButton({ label = "Other Install", className }: { label
       setInstalling(false);
       setSheetOpen(false);
       setInstallPrompt(null);
-      if (choice.outcome === "accepted") setInstalled(true);
+      window.__pipnestBeforeInstallPrompt = undefined;
+      if (choice.outcome === "accepted") {
+        window.localStorage.setItem("pipnest:pwa-installed", "1");
+        setInstalled(true);
+      }
       else setProgress(0);
     }, 450);
   }

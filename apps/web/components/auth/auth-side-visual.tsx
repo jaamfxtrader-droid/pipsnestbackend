@@ -85,7 +85,7 @@ export function AuthSideVisual({ compact = false }: { compact?: boolean }) {
             <span className={cn("h-10 rounded-md bg-gradient-to-r", scene.accent)} />
           </div>
           <div className="animate-float-slow grid place-items-center rounded-lg border border-slate-200 bg-white/85 p-4 dark:border-white/10 dark:bg-slate-950/70">
-            <img src="/logo-icon.png" alt="" className="h-14 w-14 object-contain" />
+            <img src="/pwa-icon-512.png" alt="" className="h-14 w-14 object-contain" />
           </div>
         </div>
       </div>

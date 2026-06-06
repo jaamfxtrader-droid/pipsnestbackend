@@ -1,4 +1,5 @@
-import { LegalPage } from "@/components/layout/legal-page";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
 import { disclaimerSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
@@ -9,13 +10,14 @@ export const metadata = pageMetadata({
   keywords: ["trading disclaimer", "no investment advice", "simulated trading"]
 });
 
-export default function DisclaimerPage() {
+export default async function DisclaimerPage() {
+  const page = await getCmsPage("disclaimer");
   return (
     <LegalPage
-      title="Disclaimer"
+      title={page?.title ?? "Disclaimer"}
       eyebrow="Disclosure"
-      summary="This disclaimer explains the simulated trading setup, service-fee structure, absence of investment services, and general risk warnings for PipNest Markets programs."
-      sections={disclaimerSections}
+      summary={page?.content ?? "This disclaimer explains the simulated trading setup, service-fee structure, absence of investment services, and general risk warnings for PipNest Markets programs."}
+      sections={cmsLegalSections(page, disclaimerSections)}
     />
   );
 }

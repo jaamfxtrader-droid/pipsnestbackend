@@ -1,4 +1,5 @@
-import { LegalPage } from "@/components/layout/legal-page";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
 import { kycSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
@@ -9,13 +10,14 @@ export const metadata = pageMetadata({
   keywords: ["KYC policy", "identity verification", "AML checks"]
 });
 
-export default function KycPolicyPage() {
+export default async function KycPolicyPage() {
+  const page = await getCmsPage("kyc-policy");
   return (
     <LegalPage
-      title="Risk Disclosure, AML/KYC Policy, Responsible Trading Policy"
+      title={page?.title ?? "Risk Disclosure, AML/KYC Policy, Responsible Trading Policy"}
       eyebrow="Compliance"
-      summary="This policy explains identity verification, AML controls, responsible trading expectations, trader responsibilities, and company review rights."
-      sections={kycSections}
+      summary={page?.content ?? "This policy explains identity verification, AML controls, responsible trading expectations, trader responsibilities, and company review rights."}
+      sections={cmsLegalSections(page, kycSections)}
     />
   );
 }

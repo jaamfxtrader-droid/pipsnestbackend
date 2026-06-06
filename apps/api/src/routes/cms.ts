@@ -4,10 +4,19 @@ import { asyncHandler, HttpError, sendSuccess } from "../utils/http.js";
 
 const cmsPageInclude = {
   sections: {
-    where: { published: true },
+    where: { OR: [{ published: true }, { sectionKey: "__page_settings" }] },
     orderBy: { sortOrder: "asc" as const }
   }
 };
+
+function serializeCmsPage<T extends { sections?: Array<{ sectionKey: string; metadata: unknown }> }>(page: T) {
+  const settings = page.sections?.find((section) => section.sectionKey === "__page_settings");
+  return {
+    ...page,
+    metadata: (settings?.metadata as Record<string, unknown> | null) ?? null,
+    sections: page.sections?.filter((section) => section.sectionKey !== "__page_settings") ?? []
+  };
+}
 
 export const cmsRouter = Router();
 
@@ -139,7 +148,7 @@ cmsRouter.get(
       orderBy: { slug: "asc" }
     });
 
-    sendSuccess(res, { pages });
+    sendSuccess(res, { pages: pages.map(serializeCmsPage) });
   })
 );
 
@@ -152,6 +161,6 @@ cmsRouter.get(
     });
 
     if (!page || !page.published) throw new HttpError(404, "CMS page was not found");
-    sendSuccess(res, { page });
+    sendSuccess(res, { page: serializeCmsPage(page) });
   })
 );

@@ -11,7 +11,7 @@ export type CmsSection = {
   ctaLabel?: string | null;
   ctaHref?: string | null;
   sortOrder: number;
-  sectionType?: "block" | "grid" | "flex" | "carousel";
+  sectionType?: "block" | "grid" | "flex" | "carousel" | "media" | "split";
   imageUrl?: string | null;
   iconName?: string | null;
   colorScheme?: string | null;

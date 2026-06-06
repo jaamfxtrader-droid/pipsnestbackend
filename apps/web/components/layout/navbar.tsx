@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, ChevronDown, LogIn, Menu, ShieldCheck, UserPlus, X } from "lucide-react";
+import { getCmsPages, type CmsPage } from "@/lib/cms";
 import type { TranslationKey } from "@/lib/i18n";
 import { useTranslation } from "@/lib/use-translation";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function Navbar() {
   const hydrate = useAuthStore((state) => state.hydrate);
   const [hasStoredToken, setHasStoredToken] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cmsHeaderLinks, setCmsHeaderLinks] = useState<CmsPage[]>([]);
 
   useEffect(() => {
     hydrate("user");
@@ -45,11 +47,35 @@ export function Navbar() {
   }, [hydrate]);
 
   useEffect(() => {
+    let mounted = true;
+    const staticHrefs = new Set([...navLinks, ...importantLinks].map((link) => link.href));
+
+    getCmsPages().then((pages) => {
+      if (!mounted) return;
+      setCmsHeaderLinks(
+        pages.filter((page) => {
+          const href = page.slug === "home" ? "/" : `/${page.slug}`;
+          const placement = page.metadata?.navPlacement;
+          return page.published !== false && !staticHrefs.has(href) && (placement === "header" || placement === "both");
+        })
+      );
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
 
   const hasSession = Boolean((scope === "user" && token) || hasStoredToken);
   const closeMenu = () => setMenuOpen(false);
+  const dynamicImportantLinks = cmsHeaderLinks.map((page) => ({
+    href: page.slug === "home" ? "/" : `/${page.slug}`,
+    label: page.metadata?.navLabel || page.title
+  }));
 
   return (
     <header className="sticky top-0 z-50 px-3 py-3 sm:px-5">
@@ -84,6 +110,15 @@ export function Navbar() {
                     className="block rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-primary hover:text-white dark:text-slate-200"
                   >
                     {t(link.label as TranslationKey)}
+                  </Link>
+                ))}
+                {dynamicImportantLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="block rounded-xl px-3 py-2.5 text-sm text-slate-700 transition hover:bg-primary hover:text-white dark:text-slate-200"
+                  >
+                    {link.label}
                   </Link>
                 ))}
               </div>
@@ -162,6 +197,16 @@ export function Navbar() {
                       className="rounded-md px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-950 hover:text-white dark:text-slate-300 dark:hover:bg-white dark:hover:text-slate-950"
                     >
                       {t(link.label as TranslationKey)}
+                    </Link>
+                  ))}
+                  {dynamicImportantLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={closeMenu}
+                      className="rounded-md px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-950 hover:text-white dark:text-slate-300 dark:hover:bg-white dark:hover:text-slate-950"
+                    >
+                      {link.label}
                     </Link>
                   ))}
                 </div>

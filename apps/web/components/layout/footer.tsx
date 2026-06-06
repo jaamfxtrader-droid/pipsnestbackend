@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CreditCard, Instagram, Landmark, Linkedin, Send, Wallet, Youtube } from "lucide-react";
 import type { TranslationKey } from "@/lib/i18n";
+import { getCmsPages, type CmsPage } from "@/lib/cms";
 import { defaultSiteSettings, getSiteSettings } from "@/lib/site-settings";
 import { useTranslation } from "@/lib/use-translation";
 import { BrandLogo } from "./brand-logo";
@@ -53,12 +54,22 @@ const paymentBadges = [
 export function Footer() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState(defaultSiteSettings);
+  const [cmsFooterLinks, setCmsFooterLinks] = useState<CmsPage[]>([]);
 
   useEffect(() => {
     let mounted = true;
 
     getSiteSettings().then((siteSettings) => {
       if (mounted) setSettings(siteSettings);
+    });
+    getCmsPages().then((pages) => {
+      if (!mounted) return;
+      setCmsFooterLinks(
+        pages.filter((page) => {
+          const placement = page.metadata?.navPlacement;
+          return page.published !== false && (placement === "footer" || placement === "both");
+        })
+      );
     });
 
     return () => {
@@ -72,6 +83,10 @@ export function Footer() {
     { href: settings.socialLinks.linkedin, label: "LinkedIn", icon: Linkedin },
     { href: settings.socialLinks.telegram, label: "Telegram", icon: Send }
   ].filter((social) => social.href);
+  const staticFooterHrefs = new Set(columns.flatMap((column) => column.links.map(([, href]) => href)));
+  const dynamicFooterLinks = cmsFooterLinks
+    .map((page) => ({ href: page.slug === "home" ? "/" : `/${page.slug}`, label: page.metadata?.navLabel || page.title }))
+    .filter((link) => !staticFooterHrefs.has(link.href));
 
   return (
     <footer className="border-t border-slate-200 bg-white py-12 dark:border-white/10 dark:bg-[#020817]">
@@ -109,6 +124,13 @@ export function Footer() {
                     {t(label as TranslationKey)}
                   </Link>
                 ))}
+                {column.title === "footer.company"
+                  ? dynamicFooterLinks.map((link) => (
+                      <Link key={link.href} href={link.href} className="transition hover:text-primary">
+                        {link.label}
+                      </Link>
+                    ))
+                  : null}
               </div>
             </div>
           ))}

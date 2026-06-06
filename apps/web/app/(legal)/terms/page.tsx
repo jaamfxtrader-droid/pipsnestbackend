@@ -1,4 +1,5 @@
-import { LegalPage } from "@/components/layout/legal-page";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
 import { termsSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
@@ -9,13 +10,14 @@ export const metadata = pageMetadata({
   keywords: ["terms and conditions", "challenge terms", "trader responsibilities"]
 });
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const page = await getCmsPage("terms");
   return (
     <LegalPage
-      title="PipNest Markets - Terms & Conditions"
+      title={page?.title ?? "PipNest Markets - Terms & Conditions"}
       eyebrow="Legal"
-      summary="These Terms & Conditions govern access to PipNest Markets services, challenge accounts, simulated evaluation rules, prohibited practices, and account responsibilities."
-      sections={termsSections}
+      summary={page?.content ?? "These Terms & Conditions govern access to PipNest Markets services, challenge accounts, simulated evaluation rules, prohibited practices, and account responsibilities."}
+      sections={cmsLegalSections(page, termsSections)}
     />
   );
 }
