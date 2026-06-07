@@ -5,12 +5,17 @@ import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { uploadManualFundingAccountImage, uploadTopUpProof } from "../services/cloudinary.service.js";
+import { createNowPayment } from "../services/nowpayments.service.js";
 import { money, sendTransactionEmail } from "../services/transaction-email.service.js";
 import { buildTopUpOverview, getTopUpBalance } from "../services/topup.service.js";
 import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
 export const topUpRouter = Router();
 topUpRouter.use(authenticate);
+
+const topUpCryptoCheckoutSchema = z.object({
+  amount: z.coerce.number().positive("Top-up amount must be greater than zero")
+});
 
 topUpRouter.get(
   "/overview",
@@ -102,6 +107,113 @@ topUpRouter.post(
     }
 
     sendSuccess(res, { topUp, message: `Manual top-up request submitted. Balance will update after admin approval within ${approvalWindow}.` }, 201);
+  })
+);
+
+topUpRouter.post(
+  "/crypto-checkout",
+  validateBody(topUpCryptoCheckoutSchema),
+  asyncHandler(async (req, res) => {
+    const amount = Number(req.body.amount);
+    const topUp = await prisma.topUpTransaction.create({
+      data: {
+        userId: req.user!.id,
+        amount,
+        method: "CRYPTO",
+        reference: "NOWPayments crypto top-up",
+        transactionId: `crypto-${Date.now()}`,
+        status: "PENDING"
+      }
+    });
+
+    try {
+      const nowPayment = await createNowPayment({
+        orderNumber: `topup-${topUp.id}`,
+        description: "PipNest Markets top-up balance",
+        amount
+      });
+      const payment = await prisma.payment.create({
+        data: {
+          userId: req.user!.id,
+          provider: "nowpayments-topup",
+          providerPaymentId: String(nowPayment.payment_id),
+          amount,
+          status: "PENDING",
+          metadata: { ...(nowPayment as object), topUpId: topUp.id, checkoutType: "topup" }
+        }
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: req.user!.id,
+          title: "Crypto top-up started",
+          message: "Your crypto top-up checkout is waiting for payment confirmation.",
+          type: "INFO"
+        }
+      });
+
+      sendSuccess(
+        res,
+        {
+          topUp,
+          payment,
+          checkout: {
+            provider: "nowpayments",
+            paymentId: String(nowPayment.payment_id),
+            status: nowPayment.payment_status ?? "waiting",
+            payAddress: nowPayment.pay_address,
+            payAmount: nowPayment.pay_amount,
+            payCurrency: nowPayment.pay_currency,
+            priceAmount: nowPayment.price_amount ?? amount,
+            priceCurrency: nowPayment.price_currency ?? "usd",
+            topUp
+          }
+        },
+        201
+      );
+    } catch (error) {
+      await prisma.topUpTransaction.update({
+        where: { id: topUp.id },
+        data: { status: "REJECTED", adminNote: "Crypto checkout could not be created", processedAt: new Date() }
+      });
+      throw new HttpError(502, error instanceof Error ? error.message : "Crypto checkout could not be created");
+    }
+  })
+);
+
+topUpRouter.get(
+  "/crypto/pending",
+  asyncHandler(async (req, res) => {
+    const payment = await prisma.payment.findFirst({
+      where: { userId: req.user!.id, provider: "nowpayments-topup", status: "PENDING" },
+      orderBy: { createdAt: "desc" }
+    });
+    if (!payment) {
+      sendSuccess(res, { checkout: null });
+      return;
+    }
+
+    const metadata = (payment.metadata as Record<string, unknown> | null) ?? {};
+    const topUpId = typeof metadata.topUpId === "string" ? metadata.topUpId : null;
+    const topUp = topUpId ? await prisma.topUpTransaction.findUnique({ where: { id: topUpId } }) : null;
+    if (!topUp || topUp.status !== "PENDING") {
+      sendSuccess(res, { checkout: null });
+      return;
+    }
+
+    sendSuccess(res, {
+      checkout: {
+        provider: "nowpayments",
+        paymentId: payment.providerPaymentId,
+        status: String(metadata.payment_status ?? payment.status),
+        payAddress: typeof metadata.pay_address === "string" ? metadata.pay_address : undefined,
+        payAmount: typeof metadata.pay_amount === "number" ? metadata.pay_amount : undefined,
+        payCurrency: typeof metadata.pay_currency === "string" ? metadata.pay_currency : undefined,
+        priceAmount: typeof metadata.price_amount === "number" ? metadata.price_amount : Number(payment.amount),
+        priceCurrency: typeof metadata.price_currency === "string" ? metadata.price_currency : payment.currency.toLowerCase(),
+        topUp
+      }
+    });
   })
 );
 

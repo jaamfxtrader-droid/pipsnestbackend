@@ -17,6 +17,10 @@ type TransactionEmailInput = {
   statusLabel: string;
   amount?: string;
   rows: ReceiptRow[];
+  action?: {
+    label: string;
+    url: string;
+  };
   footerNote?: string;
 };
 
@@ -46,7 +50,7 @@ function renderText(input: TransactionEmailInput) {
   const rows = input.rows.map((row) => `${row.label}: ${row.value}`).join("\n");
   return `${input.title}\n\nHi ${input.name || "Trader"},\n${input.intro}\n\nStatus: ${input.statusLabel}${
     input.amount ? `\nAmount: ${input.amount}` : ""
-  }\n${rows}\n\n${input.footerNote ?? "This is an automated transaction email from PipNest Markets."}`;
+  }\n${rows}${input.action ? `\n${input.action.label}: ${input.action.url}` : ""}\n\n${input.footerNote ?? "This is an automated transaction email from PipNest Markets."}`;
 }
 
 export async function sendTransactionEmail(input: TransactionEmailInput) {
@@ -55,6 +59,8 @@ export async function sendTransactionEmail(input: TransactionEmailInput) {
   const safeIntro = escapeHtml(input.intro);
   const safeStatus = escapeHtml(input.statusLabel);
   const safeAmount = input.amount ? escapeHtml(input.amount) : "";
+  const safeActionLabel = input.action ? escapeHtml(input.action.label) : "";
+  const safeActionUrl = input.action ? escapeHtml(input.action.url) : "";
   const safeFooter = escapeHtml(input.footerNote ?? "This is an automated transaction email from PipNest Markets.");
 
   const html = `
@@ -89,6 +95,13 @@ export async function sendTransactionEmail(input: TransactionEmailInput) {
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
             ${renderRows(input.rows)}
           </table>
+          ${
+            input.action
+              ? `<div style="margin:24px 0 0;">
+                  <a href="${safeActionUrl}" download style="display:inline-block;padding:13px 18px;border-radius:12px;background:#2563eb;color:#ffffff;font-size:14px;font-weight:800;text-decoration:none;">${safeActionLabel}</a>
+                </div>`
+              : ""
+          }
           <p style="margin:24px 0 0;font-size:13px;line-height:1.7;color:#64748b;">${safeFooter}</p>
           <p style="margin:12px 0 0;font-size:12px;line-height:1.7;color:#94a3b8;">Sent by transaction@pipnestmarkets.com</p>
         </div>

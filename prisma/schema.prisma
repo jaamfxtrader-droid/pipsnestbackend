@@ -347,6 +347,7 @@ model PayoutRequest {
   bankDetails      String?
   status           PayoutStatus    @default(PENDING)
   adminNote        String?
+  certificateUrl   String?
   requestedAt      DateTime        @default(now())
   processedAt      DateTime?
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)

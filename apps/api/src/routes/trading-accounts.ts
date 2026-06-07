@@ -223,16 +223,21 @@ tradingAccountRouter.post(
       throw new HttpError(400, `This challenge does not support ${stageLabel(stage)} requests.`);
     }
 
-    const previousStage = previousStageFor(stage, phaseCount);
-    const platformsToCreate = requestedPlatforms.filter((platform) => {
-      const alreadyApplied = order.accounts.some((account) => account.platform === platform && account.stage === stage);
-      if (alreadyApplied) return false;
-      if (!previousStage) return isFirstStage(stage, phaseCount);
-      return order.accounts.some((account) => account.platform === platform && account.stage === previousStage && account.accountStatus === "PASSED");
-    });
-    if (!platformsToCreate.length) {
-      throw new HttpError(previousStage ? 403 : 409, previousStage ? `Complete ${stageLabel(previousStage)} before applying for ${stageLabel(stage)}.` : "You already applied for the selected platform");
+    const alreadyAppliedForStage = order.accounts.some((account) => account.stage === stage);
+    if (alreadyAppliedForStage) {
+      throw new HttpError(409, `You already applied for ${stageLabel(stage)} on this challenge.`);
     }
+
+    const previousStage = previousStageFor(stage, phaseCount);
+    if (!previousStage && !isFirstStage(stage, phaseCount)) {
+      throw new HttpError(403, `Complete the previous stage before applying for ${stageLabel(stage)}.`);
+    }
+
+    if (previousStage && !order.accounts.some((account) => account.stage === previousStage && account.accountStatus === "PASSED")) {
+      throw new HttpError(403, `Complete ${stageLabel(previousStage)} before applying for ${stageLabel(stage)}.`);
+    }
+
+    const platformsToCreate = requestedPlatforms;
 
     const accounts = await prisma.$transaction(
       platformsToCreate.map((platform) =>

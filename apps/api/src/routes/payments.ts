@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -80,17 +81,19 @@ paymentRouter.post(
 async function syncNowPayment(providerPaymentId: string, providerStatus?: string, payload?: unknown) {
   const paymentStatus = mapNowPaymentStatus(providerStatus);
   const existingPayment = await prisma.payment.findFirst({
-    where: { provider: "nowpayments", providerPaymentId },
+    where: { provider: { in: ["nowpayments", "nowpayments-topup"] }, providerPaymentId },
     include: { user: true, order: { include: { challenge: true } } }
   });
   if (!existingPayment) throw new HttpError(404, "Crypto payment not found");
   const shouldSendInvoice = existingPayment.status !== "SUCCEEDED" && paymentStatus === "SUCCEEDED";
+  const existingMetadata = (existingPayment.metadata as Record<string, unknown> | null) ?? {};
+  const topUpId = existingPayment.provider === "nowpayments-topup" && typeof existingMetadata.topUpId === "string" ? existingMetadata.topUpId : null;
 
   const payment = await prisma.payment.update({
     where: { id: existingPayment.id },
     data: {
       status: paymentStatus,
-      metadata: payload ? (payload as object) : undefined
+      metadata: payload ? ({ ...existingMetadata, ...(payload as Record<string, unknown>) } as Prisma.InputJsonObject) : undefined
     },
     include: { user: true, order: { include: { challenge: true } } }
   });
@@ -113,6 +116,30 @@ async function syncNowPayment(providerPaymentId: string, providerStatus?: string
     });
   }
 
+  let topUp = null;
+  if (topUpId) {
+    topUp = await prisma.topUpTransaction.update({
+      where: { id: topUpId },
+      data: {
+        status: paymentStatus === "SUCCEEDED" ? "APPROVED" : paymentStatus === "FAILED" ? "REJECTED" : "PENDING",
+        transactionId: providerPaymentId,
+        adminNote: paymentStatus === "SUCCEEDED" ? "NOWPayments crypto top-up confirmed automatically." : paymentStatus === "FAILED" ? "NOWPayments crypto top-up failed or expired." : undefined,
+        processedAt: paymentStatus === "SUCCEEDED" || paymentStatus === "FAILED" ? new Date() : null
+      }
+    });
+
+    if (paymentStatus === "SUCCEEDED") {
+      await prisma.notification.create({
+        data: {
+          userId: payment.userId,
+          title: "Crypto top-up confirmed",
+          message: "Your crypto top-up has been credited to your top-up balance.",
+          type: "SUCCESS"
+        }
+      });
+    }
+  }
+
   if (shouldSendInvoice && payment.order) {
     void sendTransactionEmail({
       to: payment.user.email,
@@ -131,6 +158,25 @@ async function syncNowPayment(providerPaymentId: string, providerStatus?: string
       ],
       footerNote: "This invoice was sent after crypto payment confirmation."
     }).catch((error) => console.error("Crypto invoice email failed:", error));
+  }
+
+  if (shouldSendInvoice && topUp) {
+    void sendTransactionEmail({
+      to: payment.user.email,
+      name: payment.user.name,
+      subject: `Crypto top-up credited | PipNest Markets`,
+      title: "Crypto top-up credited",
+      intro: "Your crypto top-up payment was confirmed and credited to your top-up balance.",
+      statusLabel: "Approved",
+      amount: money(payment.amount, payment.currency),
+      rows: [
+        { label: "Top-up reference", value: topUp.reference ?? topUp.id },
+        { label: "Payment provider", value: "NOWPayments" },
+        { label: "Provider payment ID", value: payment.providerPaymentId ?? providerPaymentId },
+        { label: "Confirmed at", value: new Date().toISOString() }
+      ],
+      footerNote: "Your credited balance can now be used for eligible challenge purchases."
+    }).catch((error) => console.error("Crypto top-up email failed:", error));
   }
 
   return payment;
@@ -178,7 +224,7 @@ paymentRouter.get(
   authenticate,
   asyncHandler(async (req, res) => {
     const payment = await prisma.payment.findFirst({
-      where: { provider: "nowpayments", providerPaymentId: req.params.paymentId, userId: req.user!.id },
+      where: { provider: { in: ["nowpayments", "nowpayments-topup"] }, providerPaymentId: req.params.paymentId, userId: req.user!.id },
       include: { order: { include: { challenge: true } } }
     });
     if (!payment) throw new HttpError(404, "Crypto payment not found");
@@ -188,10 +234,14 @@ paymentRouter.get(
     const updatedOrder = payment.orderId
       ? await prisma.order.findUnique({ where: { id: payment.orderId }, include: { challenge: true, payments: true } })
       : null;
+    const metadata = (syncedPayment.metadata as Record<string, unknown> | null) ?? {};
+    const topUpId = typeof metadata.topUpId === "string" ? metadata.topUpId : null;
+    const topUp = topUpId ? await prisma.topUpTransaction.findUnique({ where: { id: topUpId } }) : null;
 
     sendSuccess(res, {
       payment: syncedPayment,
       order: updatedOrder,
+      topUp,
       status: status.payment_status,
       mappedStatus: syncedPayment.status
     });
@@ -203,7 +253,7 @@ paymentRouter.post(
   authenticate,
   asyncHandler(async (req, res) => {
     const payment = await prisma.payment.findFirst({
-      where: { provider: "nowpayments", providerPaymentId: req.params.paymentId, userId: req.user!.id },
+      where: { provider: { in: ["nowpayments", "nowpayments-topup"] }, providerPaymentId: req.params.paymentId, userId: req.user!.id },
       include: { order: { include: { challenge: true } } }
     });
     if (!payment) throw new HttpError(404, "Crypto payment not found");
@@ -244,6 +294,14 @@ paymentRouter.post(
           include: { challenge: true, payments: true }
         })
       : null;
+    const metadata = (payment.metadata as Record<string, unknown> | null) ?? {};
+    const topUpId = typeof metadata.topUpId === "string" ? metadata.topUpId : null;
+    const updatedTopUp = topUpId
+      ? await prisma.topUpTransaction.update({
+          where: { id: topUpId },
+          data: { status: "CANCELLED", adminNote: "Crypto checkout cancelled by user.", processedAt: new Date() }
+        })
+      : null;
 
     if (payment.order) {
       await prisma.notification.create({
@@ -259,6 +317,7 @@ paymentRouter.post(
     sendSuccess(res, {
       payment: updatedPayment,
       order: updatedOrder,
+      topUp: updatedTopUp,
       message: "Crypto checkout cancelled"
     });
   })

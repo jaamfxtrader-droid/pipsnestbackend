@@ -9,7 +9,8 @@ import { HttpError, asyncHandler, sendSuccess } from "../utils/http.js";
 
 const payoutStatusSchema = z.object({
   status: z.enum(["PENDING", "APPROVED", "PAID", "REJECTED", "CANCELLED"]),
-  adminNote: z.string().optional()
+  adminNote: z.string().optional(),
+  certificateUrl: z.string().max(6_000_000).optional().nullable()
 });
 
 function toMoney(value: unknown) {
@@ -93,6 +94,7 @@ async function buildPayoutOverview(userId: string) {
     amount: roundMoney(toMoney(payout.amount)),
     method: payout.method,
     status: payout.status,
+    certificateUrl: payout.certificateUrl,
     requestedAt: payout.requestedAt.toISOString(),
     processedAt: payout.processedAt?.toISOString() ?? null,
     adminNote: payout.adminNote,
@@ -267,6 +269,7 @@ adminPayoutRouter.put(
       data: {
         status: req.body.status,
         adminNote: req.body.adminNote,
+        certificateUrl: req.body.certificateUrl === undefined ? undefined : req.body.certificateUrl || null,
         processedAt: ["APPROVED", "PAID", "REJECTED", "CANCELLED"].includes(req.body.status) ? new Date() : null
       },
       include: { user: true, tradingAccount: { include: { challenge: true } } }
@@ -295,6 +298,7 @@ adminPayoutRouter.put(
         { label: "Processed at", value: payout.processedAt?.toISOString() ?? new Date().toISOString() },
         ...(payout.adminNote ? [{ label: "Admin note", value: payout.adminNote }] : [])
       ],
+      action: payout.certificateUrl && ["APPROVED", "PAID"].includes(payout.status) ? { label: "Download payout certificate", url: payout.certificateUrl } : undefined,
       footerNote: payout.status === "PAID" ? "Your payout has been marked paid by the PipNest Markets team." : undefined
     }).catch((error) => console.error("Payout status email failed:", error));
     sendSuccess(res, { payout });
