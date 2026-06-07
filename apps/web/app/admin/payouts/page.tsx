@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Banknote, CheckCircle2, Clock3, CreditCard, Loader2, RefreshCw, Wallet, XCircle } from "lucide-react";
+import { Banknote, CheckCircle2, Clock3, CreditCard, Download, ImageUp, Loader2, RefreshCw, Wallet, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ type AdminPayout = {
   bankDetails?: string | null;
   status: PayoutStatus;
   adminNote?: string | null;
+  certificateUrl?: string | null;
   requestedAt: string;
   processedAt?: string | null;
   user: Pick<AuthUser, "id" | "name" | "email" | "phone">;
@@ -80,6 +81,7 @@ export default function AdminFinancePage() {
   const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [selectedPayoutId, setSelectedPayoutId] = useState("");
   const [adminNote, setAdminNote] = useState("");
+  const [certificateUrl, setCertificateUrl] = useState("");
   const [view, setView] = useState<"payouts" | "payments">("payouts");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -131,7 +133,28 @@ export default function AdminFinancePage() {
 
   useEffect(() => {
     setAdminNote(selectedPayout?.adminNote ?? "");
-  }, [selectedPayout?.id, selectedPayout?.adminNote]);
+    setCertificateUrl(selectedPayout?.certificateUrl ?? "");
+  }, [selectedPayout?.id, selectedPayout?.adminNote, selectedPayout?.certificateUrl]);
+
+  function uploadCertificate(file?: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      pushToast({ title: "Invalid certificate", message: "Please upload a payout certificate image.", tone: "error" });
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      pushToast({ title: "Certificate too large", message: "Please upload an image under 3 MB.", tone: "error" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCertificateUrl(typeof reader.result === "string" ? reader.result : "");
+      pushToast({ title: "Certificate ready", message: "Approve or mark paid to send it to the trader.", tone: "success" });
+    };
+    reader.onerror = () => pushToast({ title: "Upload failed", message: "Please choose another image.", tone: "error" });
+    reader.readAsDataURL(file);
+  }
 
   async function updatePayoutStatus(status: PayoutStatus) {
     if (!token || !selectedPayout) return;
@@ -140,7 +163,7 @@ export default function AdminFinancePage() {
       const data = await apiFetch<{ payout: AdminPayout }>(`/admin/payouts/${selectedPayout.id}/status`, {
         method: "PUT",
         token,
-        body: JSON.stringify({ status, adminNote })
+        body: JSON.stringify({ status, adminNote, certificateUrl: certificateUrl || null })
       });
       setPayouts((current) => current.map((payout) => (payout.id === selectedPayout.id ? { ...payout, ...data.payout } : payout)));
       pushToast({ title: "Payout updated", message: `Payout is now ${status.toLowerCase()}.`, tone: "success" });
@@ -328,6 +351,39 @@ export default function AdminFinancePage() {
                     placeholder="Approval note, paid transaction ID, or rejection reason"
                   />
                 </label>
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Payout certificate</div>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Upload an approval certificate image before approving or marking paid.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="secondary" onClick={() => document.getElementById("payout-certificate-upload")?.click()}>
+                        <ImageUp className="h-4 w-4" />
+                        Upload
+                      </Button>
+                      {certificateUrl ? (
+                        <a
+                          href={certificateUrl}
+                          download={`payout-certificate-${selectedPayout.id}.png`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-primary hover:text-primary dark:border-white/10 dark:text-slate-200"
+                        >
+                          <Download className="h-4 w-4" />
+                          Preview
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                  <input id="payout-certificate-upload" type="file" accept="image/*" className="hidden" onChange={(event) => uploadCertificate(event.target.files?.[0])} />
+                  {certificateUrl ? (
+                    <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white dark:border-white/10 dark:bg-black/20">
+                      <img src={certificateUrl} alt="Payout certificate preview" className="max-h-72 w-full object-contain" />
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
                   <Button type="button" variant="secondary" onClick={() => updatePayoutStatus("PENDING")} disabled={saving || selectedPayout.status === "PENDING"}>

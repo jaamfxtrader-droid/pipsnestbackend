@@ -19,7 +19,7 @@
   <g filter="url(#shadow)">
     <rect x="34" y="36" width="352" height="652" rx="30" fill="#07152d" stroke="#ffffff" stroke-opacity=".15"/>
     <rect x="58" y="62" width="72" height="72" rx="22" fill="#ffffff"/>
-    <image href="/logo-icon.png" x="70" y="74" width="48" height="48" preserveAspectRatio="xMidYMid meet"/>
+    <image href="/logo.png" x="70" y="74" width="48" height="48" preserveAspectRatio="xMidYMid meet"/>
     <text x="146" y="84" fill="#dbeafe" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800">PipNest Markets</text>
     <text x="146" y="112" fill="#86efac" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Payout and transaction view</text>
     <text x="58" y="184" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900">Payout</text>

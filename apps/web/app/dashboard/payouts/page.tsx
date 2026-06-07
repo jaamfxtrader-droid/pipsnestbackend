@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, CircleDollarSign, Clock3, Coins, CreditCard, FileText, Landmark, Loader2, ReceiptText, Send, Wallet } from "lucide-react";
+import { CheckCircle2, CircleDollarSign, Clock3, Coins, CreditCard, Download, FileText, Landmark, Loader2, ReceiptText, Send, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ type PayoutHistory = {
   amount: number;
   method: string;
   status: string;
+  certificateUrl?: string | null;
   requestedAt: string;
   processedAt: string | null;
   adminNote: string | null;
@@ -117,15 +118,15 @@ function SummaryCard({
   };
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="flex items-center justify-between gap-3">
-        <span className={cn("grid h-10 w-10 place-items-center rounded-md", toneClasses[tone])}>
-          <Icon className="h-5 w-5" />
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+      <div className="flex min-w-0 items-center justify-between gap-2 sm:gap-3">
+        <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-md sm:h-10 sm:w-10", toneClasses[tone])}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
-        <span className="text-right text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="min-w-0 truncate text-right text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:text-xs">{label}</span>
       </div>
-      <div className="mt-5 text-2xl font-black">{value}</div>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{detail}</p>
+      <div className="mt-4 truncate text-lg font-black sm:mt-5 sm:text-2xl">{value}</div>
+      <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">{detail}</p>
     </div>
   );
 }
@@ -219,7 +220,7 @@ export default function PayoutRequestsPage() {
     <>
       <PageHeader title="Payouts & Ledger" description="Withdrawable balance, manual payouts, payout status, and transaction ledger." />
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3">
         <SummaryCard label="Available" value={formatMoney(overview.availableBalance)} detail="Withdrawable profit after pending payouts" icon={Wallet} tone="profit" />
         <SummaryCard label="Pending" value={formatMoney(overview.pendingPayouts)} detail="Requests waiting for admin action" icon={Clock3} tone="warning" />
         <SummaryCard label="Paid" value={formatMoney(overview.paidPayouts)} detail="Completed payouts on your account" icon={CheckCircle2} tone="primary" />
@@ -386,7 +387,25 @@ export default function PayoutRequestsPage() {
             { header: "Method", cell: (row) => row.method },
             { header: "Amount", cell: (row) => formatMoney(row.amount) },
             { header: "Date", cell: (row) => formatDate(row.requestedAt) },
-            { header: "Status", cell: (row) => <Badge tone={statusTone(row.status)}>{row.status}</Badge> }
+            { header: "Status", cell: (row) => <Badge tone={statusTone(row.status)}>{row.status}</Badge> },
+            {
+              header: "Certificate",
+              cell: (row) =>
+                row.certificateUrl && ["APPROVED", "PAID"].includes(row.status) ? (
+                  <a
+                    href={row.certificateUrl}
+                    download={`payout-certificate-${row.id}.png`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </a>
+                ) : (
+                  <span className="text-xs text-slate-400">Not attached</span>
+                )
+            }
           ]}
         />
       </section>

@@ -76,6 +76,36 @@ function fileToDataUrl(file: File) {
   });
 }
 
+function SwitchControl({
+  checked,
+  onChange,
+  label,
+  description
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-black text-slate-900 dark:text-white">{label}</span>
+        {description ? <span className="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">{description}</span> : null}
+      </span>
+      <span className={cn("inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition", checked ? "bg-primary" : "bg-slate-300 dark:bg-slate-700")}>
+        <span className={cn("h-5 w-5 rounded-full bg-white shadow-sm transition-transform", checked ? "translate-x-5" : "translate-x-0")} />
+      </span>
+    </button>
+  );
+}
+
 export default function AdvancedCmsEditor() {
   const pushToast = useToast((state) => state.push);
   const [pages, setPages] = useState<CmsPage[]>([]);
@@ -401,7 +431,7 @@ export default function AdvancedCmsEditor() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex min-h-[24rem] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -413,17 +443,17 @@ export default function AdvancedCmsEditor() {
   const previewDimensions = {
     desktop: { width: 1024, height: 768 },
     tablet: { width: 768, height: 1024 },
-    mobile: { width: 375, height: 667 }
+    mobile: { width: 360, height: 667 }
   };
 
   const currentDimensions = previewDimensions[previewDevice];
 
   return (
-    <div className="flex h-screen flex-col bg-slate-50 dark:bg-slate-950">
+    <div className="flex min-h-[calc(100dvh-8rem)] w-full max-w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950">
       {/* Page Selector */}
-      <div className="border-b border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.02]">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1 overflow-x-auto">
+      <div className="border-b border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.02] sm:p-4">
+        <div className="grid gap-3 xl:flex xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
             {pages.map((page, idx) => (
               <button
                 key={page.slug}
@@ -440,50 +470,55 @@ export default function AdvancedCmsEditor() {
             ))}
           </div>
           {/* Page Navigation */}
-          <div className="flex gap-2 ml-4 flex-shrink-0">
-            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={() => setShowNewPage(true)}>
+          <div className="flex flex-wrap gap-2 xl:ml-4 xl:flex-shrink-0">
+            <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={() => setShowNewPage(true)}>
               <Plus className="h-4 w-4" />
               New page
             </Button>
             <button
+              type="button"
               onClick={() => selectPage(Math.max(0, selectedPageIndex - 1))}
               disabled={selectedPageIndex === 0}
-              className="p-2 rounded hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
             >
               <ChevronUp className="h-4 w-4" />
+              Prev
             </button>
             <button
+              type="button"
               onClick={() => selectPage(Math.min(pages.length - 1, selectedPageIndex + 1))}
               disabled={selectedPageIndex === pages.length - 1}
-              className="p-2 rounded hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
             >
               <ChevronDown className="h-4 w-4" />
+              Next
             </button>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="grid min-h-0 flex-1 overflow-y-auto overflow-x-hidden lg:grid-cols-[18rem_minmax(0,1fr)] lg:overflow-hidden">
         {/* Section Sidebar */}
-        <div className="w-64 border-r border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03] flex flex-col">
+        <div className="flex min-h-0 flex-col border-b border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03] sm:p-4 lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-900 dark:text-white">Sections</h3>
             <Button
               variant="secondary"
               onClick={() => setShowNewSection(true)}
-              className="h-8 w-8 p-0 px-0"
+              className="h-9 rounded-md px-3"
             >
               <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add</span>
             </Button>
           </div>
 
-          <div className="space-y-2 overflow-y-auto flex-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 lg:block lg:max-h-[calc(100dvh-18rem)] lg:space-y-2 lg:overflow-y-auto lg:pb-0">
             {draft?.sections?.map((section, index) => (
               <div
                 key={section.sectionKey || index}
                 onClick={() => setSelectedSectionIndex(index)}
                 className={cn(
-                  "cursor-pointer rounded-md p-3 transition",
+                  "min-w-[12rem] cursor-pointer rounded-md p-3 transition lg:min-w-0",
                   selectedSectionIndex === index
                     ? "bg-primary/10 border border-primary dark:bg-primary/20"
                     : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10"
@@ -506,17 +541,17 @@ export default function AdvancedCmsEditor() {
         </div>
 
         {/* Main Editor */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {currentSection ? (
             <>
               {/* Tabs */}
-              <div className="flex border-b border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.02]">
+              <div className="flex overflow-x-auto border-b border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.02]">
                 {(["content", "seo", "styling", "preview"] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={cn(
-                      "flex-1 px-4 py-3 text-sm font-semibold transition border-b-2 capitalize",
+                      "min-w-28 flex-1 px-4 py-3 text-sm font-semibold transition border-b-2 capitalize",
                       activeTab === tab
                         ? "border-primary text-primary"
                         : "border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -528,9 +563,9 @@ export default function AdvancedCmsEditor() {
               </div>
 
               {/* Tab Content */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 lg:p-6">
                 {activeTab === "content" && (
-                  <div className="space-y-6 max-w-4xl">
+                  <div className="mx-auto w-full max-w-5xl space-y-6">
                     <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
                       <div className="mb-4 flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white">
                         <Navigation className="h-4 w-4 text-primary" />
@@ -613,19 +648,21 @@ export default function AdvancedCmsEditor() {
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
                         Title
                       </label>
-                      <div className="flex gap-2 mb-2">
+                      <div className="mb-2 flex flex-col gap-2 sm:flex-row">
                         <Input
                           value={currentSection.title}
                           onChange={(e) => updateCurrentSection({ title: e.target.value })}
                           placeholder="Section title"
-                          className="flex-1"
+                          className="min-w-0 flex-1"
                         />
                         <Button
                           variant="secondary"
                           onClick={() => setShowBadgeModal(true)}
-                          className="h-10 px-3"
+                          className="h-10 shrink-0 px-3"
+                          aria-label="Add badge"
                         >
                           <BadgeIcon className="h-4 w-4" />
+                          <span className="hidden sm:inline">Badge</span>
                         </Button>
                       </div>
                       {currentSection.metadata?.badges && (currentSection.metadata.badges as any[]).length > 0 && (
@@ -650,7 +687,7 @@ export default function AdvancedCmsEditor() {
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
                         Content
                       </label>
-                      <div className="mb-2 flex gap-2 border-b border-slate-200 pb-2 dark:border-white/10">
+                      <div className="mb-2 flex flex-wrap gap-2 border-b border-slate-200 pb-2 dark:border-white/10">
                         <button
                           onClick={() => applyTextFormatting("bold")}
                           className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-300"
@@ -692,7 +729,7 @@ export default function AdvancedCmsEditor() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
                           CTA Label
@@ -811,7 +848,7 @@ export default function AdvancedCmsEditor() {
                 )}
 
                 {activeTab === "seo" && (
-                  <div className="space-y-6 max-w-4xl">
+                  <div className="mx-auto w-full max-w-5xl space-y-6">
                     <div className="p-4 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50">
                       <p className="text-sm text-blue-800 dark:text-blue-200">
                         Page SEO metadata controls search title, keywords, and social preview data for the selected CMS page.
@@ -909,27 +946,34 @@ export default function AdvancedCmsEditor() {
                 )}
 
                 {activeTab === "styling" && (
-                  <div className="space-y-6 max-w-4xl">
+                  <div className="mx-auto w-full max-w-5xl space-y-6">
                     <div>
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
                         Theme Mode
                       </label>
-                      <div className="space-y-2">
-                        {["light", "dark", "both"].map((mode) => (
-                          <label key={mode} className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="theme"
-                              value={mode}
-                              checked={(currentSection.metadata?.themeMode as string) === mode || (mode === "both" && !currentSection.metadata?.themeMode)}
-                              onChange={(e) => updateCurrentSection({ metadata: { ...currentSection.metadata, themeMode: e.target.value } as any })}
-                              className="rounded"
-                            />
-                            <span className="text-sm font-medium text-slate-900 dark:text-white capitalize">
-                              {mode === "both" ? "Light & Dark (Auto)" : mode}
-                            </span>
-                          </label>
-                        ))}
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        {[
+                          { value: "both", label: "Light & Dark" },
+                          { value: "light", label: "Light only" },
+                          { value: "dark", label: "Dark only" }
+                        ].map((mode) => {
+                          const active = (currentSection.metadata?.themeMode as string) === mode.value || (mode.value === "both" && !currentSection.metadata?.themeMode);
+                          return (
+                            <button
+                              key={mode.value}
+                              type="button"
+                              onClick={() => updateCurrentSection({ metadata: { ...currentSection.metadata, themeMode: mode.value } as any })}
+                              className={cn(
+                                "inline-flex h-11 items-center justify-center rounded-md border px-3 text-sm font-black transition",
+                                active
+                                  ? "border-primary bg-primary text-white"
+                                  : "border-slate-200 bg-white text-slate-700 hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+                              )}
+                            >
+                              {mode.label}
+                            </button>
+                          );
+                        })}
                       </div>
                       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                         Choose which theme mode(s) this section should be visible in
@@ -954,22 +998,19 @@ export default function AdvancedCmsEditor() {
                     </div>
 
                     <div>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={currentSection.isVisible !== false}
-                          onChange={(e) => updateCurrentSection({ isVisible: e.target.checked })}
-                          className="rounded"
-                        />
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">Visible on page</span>
-                      </label>
+                      <SwitchControl
+                        checked={currentSection.isVisible !== false}
+                        onChange={(checked) => updateCurrentSection({ isVisible: checked })}
+                        label="Visible on page"
+                        description="Turn this off to hide the section without deleting it."
+                      />
                     </div>
                   </div>
                 )}
 
                 {activeTab === "preview" && (
-                  <div className="max-w-6xl">
-                    <div className="mb-6 flex gap-2 justify-center">
+                  <div className="mx-auto w-full max-w-6xl overflow-hidden">
+                    <div className="mb-6 flex flex-wrap justify-center gap-2">
                       {[
                         { device: "mobile" as PreviewDevice, icon: Smartphone, label: "Mobile" },
                         { device: "tablet" as PreviewDevice, icon: Tablet, label: "Tablet" },
@@ -991,15 +1032,15 @@ export default function AdvancedCmsEditor() {
                       ))}
                     </div>
 
-                    <div className="flex justify-center">
+                    <div className="w-full overflow-x-auto pb-2">
                       <div
                         style={{
-                          width: currentDimensions.width,
-                          height: currentDimensions.height
+                          width: "min(100%, " + currentDimensions.width + "px)",
+                          minHeight: Math.min(currentDimensions.height, 760)
                         }}
-                        className="border-4 border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900"
+                        className="mx-auto overflow-hidden rounded-lg border-4 border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
                       >
-                        <div className="p-8 h-full overflow-y-auto">
+                        <div className="h-full overflow-y-auto p-4 sm:p-8">
                           {currentSection.eyebrow && (
                             <p className="text-sm font-semibold text-primary dark:text-blue-400 mb-2 uppercase">
                               {currentSection.eyebrow}
@@ -1051,33 +1092,36 @@ export default function AdvancedCmsEditor() {
               </div>
 
               {/* Section Controls */}
-              <div className="border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.02] flex gap-2 justify-between">
-                <div className="flex gap-2">
+              <div className="flex flex-col gap-3 border-t border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
-                    className="h-8 w-8 p-0 px-0"
+                    className="h-9 rounded-md px-3"
                     onClick={() => moveSection(selectedSectionIndex, "up")}
                     disabled={selectedSectionIndex === 0}
                   >
                     <ChevronUp className="h-4 w-4" />
+                    Up
                   </Button>
                   <Button
                     variant="secondary"
-                    className="h-8 w-8 p-0 px-0"
+                    className="h-9 rounded-md px-3"
                     onClick={() => moveSection(selectedSectionIndex, "down")}
                     disabled={selectedSectionIndex === (draft?.sections?.length ?? 0) - 1}
                   >
                     <ChevronDown className="h-4 w-4" />
+                    Down
                   </Button>
                   <Button
-                    variant="secondary"
-                    className="h-8 w-8 p-0 px-0"
+                    variant="danger"
+                    className="h-9 rounded-md px-3"
                     onClick={() => setDeleteSectionIndex(selectedSectionIndex)}
                   >
                     <Trash2 className="h-4 w-4" />
+                    Delete
                   </Button>
                 </div>
-                <Button onClick={savePage} disabled={saving}>
+                <Button onClick={savePage} disabled={saving} className="w-full justify-center sm:w-auto">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Changes
                 </Button>

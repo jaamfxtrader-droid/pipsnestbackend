@@ -63,10 +63,21 @@ type ManualFundingAccount = {
   isActive: boolean;
 };
 
+type TopUpCryptoCheckout = {
+  paymentId: string;
+  status: string;
+  payAddress?: string;
+  payAmount?: number;
+  payCurrency?: string;
+  priceAmount?: number;
+  priceCurrency?: string;
+  topUp?: { id: string; amount: string | number; status: string } | null;
+};
+
 const methods = [
   { id: "MANUAL", label: "Manual", status: "Active", icon: ShieldCheck, enabled: true },
   { id: "BANK", label: "Bank", status: "Coming soon", icon: Landmark, enabled: false },
-  { id: "CRYPTO", label: "Crypto", status: "Coming soon", icon: Wallet, enabled: false },
+  { id: "CRYPTO", label: "Crypto", status: "NOWPayments", icon: Wallet, enabled: true },
   { id: "CARD", label: "Card", status: "Coming soon", icon: CreditCard, enabled: false }
 ] as const;
 
@@ -111,8 +122,12 @@ export default function TopUpPage() {
   const [proofUrl, setProofUrl] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<TopUpMethod | "">("");
   const [selectedManualAccountId, setSelectedManualAccountId] = useState("");
+  const [cryptoCheckout, setCryptoCheckout] = useState<TopUpCryptoCheckout | null>(null);
+  const [confirmCancelCheckout, setConfirmCancelCheckout] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [cancellingPayment, setCancellingPayment] = useState(false);
 
   useEffect(() => {
     hydrate("user");
@@ -128,6 +143,9 @@ export default function TopUpPage() {
       ]);
       setOverview(overviewData);
       setManualAccounts(accountData.accounts);
+      apiFetch<{ checkout: TopUpCryptoCheckout | null }>("/topups/crypto/pending", { token: authToken })
+        .then((pendingData) => setCryptoCheckout(pendingData.checkout))
+        .catch(() => undefined);
     } catch (error) {
       pushToast({
         title: "Top-up data not loaded",
@@ -163,6 +181,29 @@ export default function TopUpPage() {
 
   async function submitTopUp() {
     if (!token) return;
+    if (selectedMethod === "CRYPTO") {
+      const numericAmount = Number(amount);
+      if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+        pushToast({ title: "Amount required", message: "Enter the crypto top-up amount first.", tone: "error" });
+        return;
+      }
+      setSubmitting(true);
+      try {
+        const data = await apiFetch<{ checkout: TopUpCryptoCheckout }>("/topups/crypto-checkout", {
+          method: "POST",
+          token,
+          body: JSON.stringify({ amount: numericAmount })
+        });
+        setCryptoCheckout(data.checkout);
+        setAmount("");
+        pushToast({ title: "Crypto checkout created", message: "Send the exact amount shown, then check payment status.", tone: "success" });
+      } catch (error) {
+        pushToast({ title: "Crypto checkout not created", message: error instanceof Error ? error.message : "Please try again.", tone: "error" });
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     if (!selectedMethod || !selectedManualAccountId || !amount || !transactionId.trim() || !proofUrl) {
       pushToast({ title: "Top-up details required", message: "Select a method and account, then enter amount, transaction ID, and receipt.", tone: "error" });
       return;
@@ -200,26 +241,73 @@ export default function TopUpPage() {
     }
   }
 
+  async function checkCryptoPayment() {
+    if (!token || !cryptoCheckout) return;
+    setCheckingPayment(true);
+    try {
+      const data = await apiFetch<{ status: string; mappedStatus: string }>(`/payments/nowpayments/${cryptoCheckout.paymentId}/status`, { token });
+      if (data.mappedStatus === "SUCCEEDED") {
+        pushToast({ title: "Crypto top-up credited", message: "Your top-up balance has been updated.", tone: "success" });
+        setCryptoCheckout(null);
+        await loadData(token);
+        return;
+      }
+      if (data.mappedStatus === "FAILED") {
+        pushToast({ title: "Payment rejected", message: `NOWPayments status: ${data.status}.`, tone: "error" });
+        await loadData(token);
+        return;
+      }
+      pushToast({ title: "Payment pending", message: `NOWPayments status: ${data.status}.`, tone: "info" });
+    } catch (error) {
+      pushToast({ title: "Payment check failed", message: error instanceof Error ? error.message : "Please try again.", tone: "error" });
+    } finally {
+      setCheckingPayment(false);
+    }
+  }
+
+  async function cancelCryptoCheckout() {
+    if (!token || !cryptoCheckout) return;
+    setCancellingPayment(true);
+    try {
+      await apiFetch(`/payments/nowpayments/${cryptoCheckout.paymentId}/cancel`, { method: "POST", token });
+      pushToast({ title: "Crypto checkout cancelled", message: "You can start a new top-up checkout anytime.", tone: "info" });
+      setConfirmCancelCheckout(false);
+      setCryptoCheckout(null);
+      await loadData(token);
+    } catch (error) {
+      pushToast({ title: "Checkout not cancelled", message: error instanceof Error ? error.message : "Please check payment status before trying again.", tone: "error" });
+    } finally {
+      setCancellingPayment(false);
+    }
+  }
+
+  function copyCryptoAddress() {
+    if (!cryptoCheckout?.payAddress) return;
+    navigator.clipboard?.writeText(cryptoCheckout.payAddress).then(() => {
+      pushToast({ title: "Address copied", message: "Crypto top-up address copied.", tone: "success" });
+    }).catch(() => undefined);
+  }
+
   return (
     <>
       <PageHeader title="Top Up Balance" description="Add non-withdrawable balance for challenge purchases. Manual top-up approval time is shown per funding method." />
 
-      <section className="grid gap-5 md:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Available top-up balance</div>
-          <div className="mt-3 text-3xl font-black">{currency(overview?.balance ?? 0)}</div>
+      <section className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Available top-up balance</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{currency(overview?.balance ?? 0)}</div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Pending deposits</div>
-          <div className="mt-3 text-3xl font-black">{currency(overview?.pendingAmount ?? 0)}</div>
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Pending deposits</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{currency(overview?.pendingAmount ?? 0)}</div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Approved deposits</div>
-          <div className="mt-3 text-3xl font-black">{currency(overview?.approvedAmount ?? 0)}</div>
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Approved deposits</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{currency(overview?.approvedAmount ?? 0)}</div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Spent on challenges</div>
-          <div className="mt-3 text-3xl font-black">{currency(overview?.spentAmount ?? 0)}</div>
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Spent on challenges</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{currency(overview?.spentAmount ?? 0)}</div>
         </div>
       </section>
 
@@ -413,9 +501,17 @@ export default function TopUpPage() {
             <input type="file" accept="image/*,.pdf,.txt" className="sr-only" onChange={(event) => attachProof(event.target.files?.[0])} />
           </label>
 
-          <Button className="mt-5 w-full" onClick={submitTopUp} disabled={submitting || !selectedMethod || !selectedManualAccountId || !amount || !transactionId.trim() || !proofUrl || selectedMethod !== "MANUAL"}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-            Submit Manual Top-up
+          <Button
+            className="mt-5 w-full"
+            onClick={submitTopUp}
+            disabled={
+              submitting ||
+              !selectedMethod ||
+              (selectedMethod === "CRYPTO" ? !amount : !selectedManualAccountId || !amount || !transactionId.trim() || !proofUrl || selectedMethod !== "MANUAL")
+            }
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : selectedMethod === "CRYPTO" ? <Wallet className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+            {selectedMethod === "CRYPTO" ? "Open Crypto Checkout" : "Submit Manual Top-up"}
           </Button>
         </section>
 
@@ -479,6 +575,80 @@ export default function TopUpPage() {
           </table>
         </div>
       </section>
+
+      {cryptoCheckout ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4 md:items-center">
+          <div className="flex max-h-[calc(100dvh-0.75rem)] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-[#07152d] sm:rounded-lg">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:p-5">
+              <div>
+                <p className="text-xs font-bold uppercase text-primary">NOWPayments top-up</p>
+                <h2 className="mt-1 text-xl font-semibold">Crypto top-up checkout</h2>
+              </div>
+              <Badge tone={statusTone(cryptoCheckout.status)}>{cryptoCheckout.status}</Badge>
+            </div>
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-5">
+              <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500 dark:text-slate-400">Top-up amount</span>
+                  <strong>{currency(Number(cryptoCheckout.priceAmount ?? cryptoCheckout.topUp?.amount ?? 0))}</strong>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500 dark:text-slate-400">Pay exact amount</span>
+                  <strong>{cryptoCheckout.payAmount ?? "-"} {cryptoCheckout.payCurrency?.toUpperCase() ?? ""}</strong>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="grid gap-2">
+                  <span className="text-sm font-semibold">Payment address</span>
+                  <button
+                    type="button"
+                    onClick={copyCryptoAddress}
+                    className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-3 text-left text-sm transition hover:border-primary/40 dark:border-white/10 dark:bg-white/[0.04]"
+                  >
+                    <span className="min-w-0 break-all font-mono text-xs">{cryptoCheckout.payAddress ?? "Address unavailable"}</span>
+                    <Copy className="h-4 w-4 shrink-0 text-primary" />
+                  </button>
+                  <div className="rounded-md border border-amber-300/40 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
+                    Only cancel if you have not sent payment. If you already paid, use Check payment and wait for provider confirmation.
+                  </div>
+                </div>
+                {cryptoCheckout.payAddress ? (
+                  <QrCodeCard
+                    title={`${cryptoCheckout.payCurrency?.toUpperCase() ?? "Crypto"} address`}
+                    value={cryptoCheckout.payAddress}
+                    fileName={`pipnest-topup-${cryptoCheckout.paymentId}-crypto-qr.png`}
+                    shareText="PipNest Markets crypto top-up address"
+                  />
+                ) : null}
+              </div>
+
+              <div className="sticky bottom-0 -mx-4 -mb-4 flex flex-col-reverse gap-3 border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#07152d] sm:-mx-5 sm:-mb-5 sm:flex-row sm:justify-end sm:p-5">
+                <Button type="button" variant="danger" onClick={() => setConfirmCancelCheckout(true)}>Cancel checkout</Button>
+                <Button type="button" onClick={checkCryptoPayment} disabled={checkingPayment}>
+                  {checkingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+                  Check payment
+                </Button>
+              </div>
+            </div>
+          </div>
+          {confirmCancelCheckout ? (
+            <div className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/75 p-3 backdrop-blur-sm sm:place-items-center sm:p-4">
+              <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] dark:border-white/10 dark:bg-slate-900 sm:rounded-lg">
+                <h3 className="text-lg font-semibold">Cancel crypto top-up?</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">If payment was already sent, do not cancel. Use Check payment and wait for confirmation.</p>
+                <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="secondary" onClick={() => setConfirmCancelCheckout(false)} disabled={cancellingPayment}>Keep checkout</Button>
+                  <Button type="button" variant="danger" onClick={cancelCryptoCheckout} disabled={cancellingPayment}>
+                    {cancellingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Yes, cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }

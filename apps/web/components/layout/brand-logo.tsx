@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 function PipnestMark({ className }: { className?: string }) {
   return (
     <Image
-      src="/pwa-icon-512.png"
+      src="/logo.png"
       alt=""
       width={80}
       height={80}

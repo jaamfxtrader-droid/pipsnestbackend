@@ -74,6 +74,8 @@ type TradingAccount = {
   platform: "MT4" | "MT5";
   login: string;
   server: string;
+  stage?: "PHASE_1" | "PHASE_2" | "FUNDED";
+  orderId?: string | null;
   balance: string | number;
   equity: string | number;
   accountStatus: AccountStatus;
@@ -130,6 +132,13 @@ function statusTone(status: AccountStatus | string): "primary" | "profit" | "war
   if (["PENDING"].includes(status)) return "warning";
   if (["FAILED", "SUSPENDED", "CANCELLED", "REFUNDED", "REJECTED"].includes(status)) return "loss";
   return "neutral";
+}
+
+function stageLabel(stage?: string) {
+  if (stage === "PHASE_1") return "Phase 1";
+  if (stage === "PHASE_2") return "Phase 2";
+  if (stage === "FUNDED") return "Real Account";
+  return "Pending";
 }
 
 function formatTime(value: Date) {
@@ -212,15 +221,15 @@ function MetricCard({
   };
 
   return (
-    <div className={cn("rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]", muted && "opacity-70")}>
-      <div className="flex items-start justify-between gap-4">
+    <div className={cn("min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5", muted && "opacity-70")}>
+      <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-4">
         <div className="min-w-0">
-          <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
-          <p className="mt-2 truncate text-2xl font-semibold">{value}</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{change}</p>
+          <p className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">{label}</p>
+          <p className="mt-2 truncate text-lg font-semibold sm:text-2xl">{value}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">{change}</p>
         </div>
-        <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-md", tones[tone])}>
-          <Icon className="h-5 w-5" />
+        <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-md sm:h-10 sm:w-10", tones[tone])}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
       </div>
     </div>
@@ -415,6 +424,32 @@ export default function DashboardPage() {
   }, [equitySeries]);
 
   const ledgerPreview = payoutOverview?.ledger.slice(0, 4) ?? [];
+  const phaseSummaries = useMemo(() => {
+    const groups = new Map<string, { key: string; label: string; challengeName: string; accounts: number; equity: number; profit: number; progress: number }>();
+    for (const account of accounts) {
+      const stage = account.stage ?? "PHASE_1";
+      const key = `${account.orderId ?? account.challenge.id}-${stage}`;
+      const current = groups.get(key) ?? {
+        key,
+        label: stageLabel(stage),
+        challengeName: account.challenge.name,
+        accounts: 0,
+        equity: 0,
+        profit: 0,
+        progress: 0
+      };
+      const stats = account.stats[0];
+      current.accounts += 1;
+      current.equity += toNumber(account.equity);
+      current.profit += toNumber(stats?.profit);
+      current.progress += Number(stats?.profitTargetProgress ?? 0);
+      groups.set(key, current);
+    }
+    return Array.from(groups.values()).map((item) => ({
+      ...item,
+      progress: item.accounts ? item.progress / item.accounts : 0
+    }));
+  }, [accounts]);
 
   return (
     <>
@@ -464,13 +499,35 @@ export default function DashboardPage() {
             actionLabel="Buy Challenge"
           />
         ) : null}
-        <div className={cn("grid gap-5 md:grid-cols-2 xl:grid-cols-4", !hasChallenge && !loading && "blur-[1px]")}>
+        <div className={cn("grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4", !hasChallenge && !loading && "blur-[1px]")}>
           <MetricCard label="Total Equity" value={currency(totals.totalEquity)} change={`${activeAccounts.length} active account${activeAccounts.length === 1 ? "" : "s"}`} icon={LineChart} tone="profit" muted={!hasChallenge} />
           <MetricCard label="Profit" value={currency(totals.totalProfit)} change="Across active accounts" icon={BadgeDollarSign} tone={totals.totalProfit >= 0 ? "profit" : "loss"} muted={!hasChallenge} />
           <MetricCard label="Progress" value={formatPercent(totals.averageProgress)} change="Average target completion" icon={Target} tone="primary" muted={!hasChallenge} />
           <MetricCard label="Available Payout" value={currency(payoutOverview?.availableBalance ?? 0)} change={`${currency(payoutOverview?.pendingPayouts ?? 0)} pending`} icon={Wallet} tone="warning" muted={!hasChallenge} />
         </div>
       </section>
+
+      {phaseSummaries.length ? (
+        <section className="mb-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="font-semibold">Phase Activity</h2>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Equity subtotals by challenge stage</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
+            {phaseSummaries.map((item) => (
+              <div key={item.key} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+                <p className="truncate text-xs font-semibold text-primary sm:text-sm">{item.label}</p>
+                <h3 className="mt-1 truncate text-sm font-semibold sm:text-base">{item.challengeName}</h3>
+                <div className="mt-3 grid gap-2 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
+                  <span className="flex min-w-0 justify-between gap-2"><span>Equity</span><strong className="truncate text-slate-950 dark:text-white">{currency(item.equity)}</strong></span>
+                  <span className="flex min-w-0 justify-between gap-2"><span>Profit</span><strong className="truncate text-slate-950 dark:text-white">{currency(item.profit)}</strong></span>
+                  <span className="flex min-w-0 justify-between gap-2"><span>Progress</span><strong className="truncate text-slate-950 dark:text-white">{formatPercent(item.progress)}</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid gap-6">

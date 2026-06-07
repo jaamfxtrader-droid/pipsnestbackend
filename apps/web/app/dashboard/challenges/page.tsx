@@ -375,22 +375,22 @@ export default function MyChallengesPage() {
     <>
       <PageHeader title="My Challenges" description="Challenge progress, accounts, purchases, and available programs in one place." />
 
-      <section className="grid gap-5 md:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Trading accounts</div>
-          <div className="mt-3 text-3xl font-black">{activeAccounts.length}</div>
+      <section className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Trading accounts</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{activeAccounts.length}</div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Challenge orders</div>
-          <div className="mt-3 text-3xl font-black">{visibleOrders.length}</div>
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Challenge orders</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{visibleOrders.length}</div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Available programs</div>
-          <div className="mt-3 text-3xl font-black">{challenges.length}</div>
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Available programs</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{challenges.length}</div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="text-sm text-slate-500 dark:text-slate-400">Top-up balance</div>
-          <div className="mt-3 text-3xl font-black">{currency(topUpBalance)}</div>
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+          <div className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">Top-up balance</div>
+          <div className="mt-3 truncate text-xl font-black sm:text-3xl">{currency(topUpBalance)}</div>
         </div>
       </section>
 

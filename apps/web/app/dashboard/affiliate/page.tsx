@@ -128,7 +128,7 @@ export default function AffiliateDashboardPage() {
     <>
       <PageHeader title="Affiliate Dashboard" description="Referral link, conversion count, and commission summary from your account data." />
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3">
         <DashboardCard label="Total Referrals" value={String(summary?.totalReferrals ?? referrals.length)} change={`${activeReferrals} active conversions`} icon={Users} tone="primary" />
         <DashboardCard label="Commission" value={formatCurrency(summary?.commission ?? 0)} change={`${paidReferrals} paid referrals`} icon={BadgeDollarSign} tone="profit" />
         <DashboardCard label="Referral Code" value={summary?.referralCode ?? "..."} change="Unique to your account" icon={Waypoints} tone="warning" />

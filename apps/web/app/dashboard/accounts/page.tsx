@@ -105,6 +105,7 @@ export default function AccountsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedStage, setSelectedStage] = useState<ChallengeStage | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
 
   useEffect(() => {
@@ -146,17 +147,27 @@ export default function AccountsPage() {
 
   const paidOrders = useMemo(() => orders.filter(isPaid), [orders]);
 
-  function appliedPlatforms(orderId: string) {
-    const order = orders.find((item) => item.id === orderId);
-    const firstStage = firstStageFor(order?.challenge.phaseCount ?? 2);
-    return new Set(accounts.filter((account) => account.orderId === orderId && account.stage === firstStage).map((account) => account.platform));
+  function stageAccounts(orderId: string, stage: ChallengeStage) {
+    return accounts.filter((account) => account.orderId === orderId && account.stage === stage);
   }
 
-  function openApply(order: Order) {
-    const alreadyApplied = appliedPlatforms(order.id);
-    const availablePlatforms = (["MT4", "MT5"] as Platform[]).filter((platform) => !alreadyApplied.has(platform));
+  function stageApplied(orderId: string, stage: ChallengeStage) {
+    return stageAccounts(orderId, stage).length > 0;
+  }
+
+  function canApplyStage(orderId: string, stage: ChallengeStage) {
+    if (stageApplied(orderId, stage)) return false;
+    const order = orders.find((item) => item.id === orderId);
+    if (!order) return false;
+    if (stage === firstStageFor(order.challenge.phaseCount)) return true;
+    const previousStage = stage === "PHASE_2" ? "PHASE_1" : order.challenge.phaseCount >= 2 ? "PHASE_2" : "PHASE_1";
+    return accounts.some((account) => account.orderId === orderId && account.stage === previousStage && account.accountStatus === "PASSED");
+  }
+
+  function openApply(order: Order, stage = firstStageFor(order.challenge.phaseCount)) {
     setSelectedOrder(order);
-    setSelectedPlatforms(availablePlatforms.slice(0, 1));
+    setSelectedStage(stage);
+    setSelectedPlatforms(["MT5"]);
   }
 
   function togglePlatform(platform: Platform) {
@@ -166,16 +177,17 @@ export default function AccountsPage() {
   }
 
   async function applyForAccount() {
-    if (!token || !selectedOrder || !selectedPlatforms.length) return;
+    if (!token || !selectedOrder || !selectedStage || !selectedPlatforms.length) return;
     setSubmitting(true);
     try {
       const data = await apiFetch<{ accounts: TradingAccount[]; message: string }>("/trading-accounts/apply", {
         method: "POST",
         token,
-        body: JSON.stringify({ orderId: selectedOrder.id, platforms: selectedPlatforms, stage: firstStageFor(selectedOrder.challenge.phaseCount) })
+        body: JSON.stringify({ orderId: selectedOrder.id, platforms: selectedPlatforms, stage: selectedStage })
       });
       setAccounts((current) => [...data.accounts, ...current]);
       setSelectedOrder(null);
+      setSelectedStage(null);
       setSelectedPlatforms([]);
       pushToast({ title: "Request submitted", message: data.message, tone: "success" });
     } catch (error) {
@@ -189,29 +201,12 @@ export default function AccountsPage() {
     }
   }
 
-  async function applyForNextStage(account: TradingAccount) {
-    if (!token || !account.orderId) return;
+  function openNextStageApply(account: TradingAccount) {
+    if (!account.orderId) return;
     const nextStage = nextStageFor(account);
     if (!nextStage) return;
-
-    setSubmitting(true);
-    try {
-      const data = await apiFetch<{ accounts: TradingAccount[]; message: string }>("/trading-accounts/apply", {
-        method: "POST",
-        token,
-        body: JSON.stringify({ orderId: account.orderId, platforms: [account.platform], stage: nextStage })
-      });
-      setAccounts((current) => [...data.accounts, ...current]);
-      pushToast({ title: "Next stage requested", message: data.message, tone: "success" });
-    } catch (error) {
-      pushToast({
-        title: "Request not submitted",
-        message: error instanceof Error ? error.message : "Please try again.",
-        tone: "error"
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    const order = orders.find((item) => item.id === account.orderId);
+    if (order) openApply(order, nextStage);
   }
 
   return (
@@ -258,9 +253,10 @@ export default function AccountsPage() {
 
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
                 {paidOrders.map((order) => {
-                  const applied = appliedPlatforms(order.id);
-                  const canApply = applied.size < 2;
                   const firstStage = firstStageFor(order.challenge.phaseCount);
+                  const applied = stageAccounts(order.id, firstStage);
+                  const appliedPlatforms = new Set(applied.map((account) => account.platform));
+                  const canApply = canApplyStage(order.id, firstStage);
 
                   return (
                     <div key={order.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
@@ -273,9 +269,9 @@ export default function AccountsPage() {
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {(["MT4", "MT5"] as Platform[]).map((platform) => (
-                          <span key={platform} className={cn("inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold", applied.has(platform) ? "bg-profit/10 text-green-700 dark:text-green-300" : "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-300")}>
+                          <span key={platform} className={cn("inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold", appliedPlatforms.has(platform) ? "bg-profit/10 text-green-700 dark:text-green-300" : "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-300")}>
                             <span className="grid h-5 w-5 place-items-center rounded bg-slate-950 text-[11px] font-black text-white">{platformIcon(platform)}</span>
-                            {platform} {applied.has(platform) ? `${stageLabel(firstStage)} applied` : "available"}
+                            {platform} {appliedPlatforms.has(platform) ? `${stageLabel(firstStage)} applied` : canApply ? "available" : "closed"}
                           </span>
                         ))}
                       </div>
@@ -286,7 +282,7 @@ export default function AccountsPage() {
                         </Button>
                       ) : (
                         <div className="mt-4 rounded-md border border-profit/20 bg-profit/10 p-3 text-sm font-semibold text-green-700 dark:text-green-300">
-                          Both MT4 and MT5 {stageLabel(firstStage)} requests already exist for this challenge.
+                          {stageLabel(firstStage)} request already exists for this challenge. Complete it before the next stage.
                         </div>
                       )}
                     </div>
@@ -356,12 +352,12 @@ export default function AccountsPage() {
                         </div>
                         <p className="mt-1 leading-6">
                           {nextStage
-                            ? `You can now apply for ${stageLabel(nextStage)}. Admin will assign a fresh ${account.platform} server after approval.`
+                            ? `You can now apply for ${stageLabel(nextStage)}. Choose MT4, MT5, or both for the next stage.`
                             : "Your real account stage is marked complete."}
                         </p>
                       </div>
                       {nextStage ? (
-                        <Button type="button" onClick={() => applyForNextStage(account)} disabled={submitting}>
+                        <Button type="button" onClick={() => openNextStageApply(account)} disabled={submitting || !canApplyStage(account.orderId ?? "", nextStage)}>
                           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                           Apply for {stageLabel(nextStage)}
                         </Button>
@@ -420,16 +416,16 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {selectedOrder ? (
+      {selectedOrder && selectedStage ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/65 p-4 backdrop-blur-sm">
           <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-slate-950">
             <div className="border-b border-slate-200 p-5 dark:border-white/10">
               <h2 className="text-xl font-semibold">Apply for {selectedOrder.challenge.name}</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Select one or both platforms for {stageLabel(firstStageFor(selectedOrder.challenge.phaseCount))}. Approval usually takes 4-5 hours.</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Select one or both platforms for {stageLabel(selectedStage)}. This stage can be requested once.</p>
             </div>
             <div className="grid gap-3 p-5 sm:grid-cols-2">
               {(["MT4", "MT5"] as Platform[]).map((platform) => {
-                const disabled = appliedPlatforms(selectedOrder.id).has(platform);
+                const disabled = stageApplied(selectedOrder.id, selectedStage);
                 const selected = selectedPlatforms.includes(platform);
 
                 return (
@@ -449,7 +445,7 @@ export default function AccountsPage() {
                       <span className="grid h-12 w-12 place-items-center rounded-md bg-slate-950 text-lg font-black text-white">{platformIcon(platform)}</span>
                       <span>
                         <span className="block font-semibold">{platform}</span>
-                        <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{disabled ? `${stageLabel(firstStageFor(selectedOrder.challenge.phaseCount))} already applied` : "Available"}</span>
+                        <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{disabled ? `${stageLabel(selectedStage)} already applied` : "Available"}</span>
                       </span>
                     </span>
                   </button>
@@ -457,7 +453,7 @@ export default function AccountsPage() {
               })}
             </div>
             <div className="flex justify-end gap-3 border-t border-slate-200 p-4 dark:border-white/10">
-              <Button type="button" variant="secondary" onClick={() => setSelectedOrder(null)}>
+              <Button type="button" variant="secondary" onClick={() => { setSelectedOrder(null); setSelectedStage(null); }}>
                 Cancel
               </Button>
               <Button type="button" onClick={applyForAccount} disabled={submitting || !selectedPlatforms.length}>

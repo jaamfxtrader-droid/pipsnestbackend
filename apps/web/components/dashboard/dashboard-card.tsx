@@ -22,15 +22,15 @@ export function DashboardCard({
   tone?: keyof typeof tones;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
-          <p className="mt-2 text-2xl font-semibold">{value}</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{change}</p>
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+      <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">{label}</p>
+          <p className="mt-2 truncate text-lg font-semibold sm:text-2xl">{value}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">{change}</p>
         </div>
-        <span className={cn("grid h-10 w-10 place-items-center rounded-md", tones[tone])}>
-          <Icon className="h-5 w-5" />
+        <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-md sm:h-10 sm:w-10", tones[tone])}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
       </div>
     </div>
