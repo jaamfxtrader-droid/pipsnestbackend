@@ -310,19 +310,27 @@ export const cmsPageDrafts: CmsPage[] = [
   }
 ];
 
+function sortSections(sections: CmsSection[] = []) {
+  return [...sections].sort((first, second) => first.sortOrder - second.sortOrder);
+}
+
 function mergeSections(defaultSections: CmsSection[] = [], remoteSections: CmsSection[] = []) {
   const merged = new Map(defaultSections.map((item) => [item.sectionKey, item]));
   remoteSections.forEach((item) => merged.set(item.sectionKey, { ...merged.get(item.sectionKey), ...item }));
-  return Array.from(merged.values()).sort((first, second) => first.sortOrder - second.sortOrder);
+  return sortSections(Array.from(merged.values()));
 }
 
-export function mergeCmsPage(defaultPage: CmsPage | undefined, remotePage: CmsPage | undefined) {
-  if (!defaultPage) return remotePage;
+export function mergeCmsPage(
+  defaultPage: CmsPage | undefined,
+  remotePage: CmsPage | undefined,
+  options: { mergeDefaultSections?: boolean } = { mergeDefaultSections: true }
+) {
+  if (!defaultPage) return remotePage ? { ...remotePage, sections: sortSections(remotePage.sections) } : remotePage;
   if (!remotePage) return defaultPage;
   return {
     ...defaultPage,
     ...remotePage,
-    sections: mergeSections(defaultPage.sections, remotePage.sections)
+    sections: options.mergeDefaultSections === false ? sortSections(remotePage.sections) : mergeSections(defaultPage.sections, remotePage.sections)
   };
 }
 
@@ -342,11 +350,11 @@ export async function getCmsPage(slug: string): Promise<CmsPage | undefined> {
       cache: "no-store"
     });
 
-    if (!response.ok) return fallback;
+    if (!response.ok) return slug === "home" ? fallback : undefined;
     const payload = (await response.json()) as ApiPayload<CmsPageResponse>;
-    return mergeCmsPage(fallback, payload.data.page);
+    return mergeCmsPage(fallback, payload.data.page, { mergeDefaultSections: slug === "home" });
   } catch {
-    return fallback;
+    return slug === "home" ? fallback : undefined;
   }
 }
 
@@ -357,7 +365,10 @@ export async function getCmsPages(): Promise<CmsPage[]> {
     const payload = (await response.json()) as ApiPayload<CmsPagesResponse>;
     if (!payload.data.pages.length) return cmsPageDrafts;
     const remoteBySlug = new Map(payload.data.pages.map((page) => [page.slug, page]));
-    const merged = cmsPageDrafts.map((page) => mergeCmsPage(page, remoteBySlug.get(page.slug))!);
+    const merged = cmsPageDrafts.map((page) => {
+      const remotePage = remoteBySlug.get(page.slug);
+      return mergeCmsPage(page, remotePage, { mergeDefaultSections: !remotePage || page.slug === "home" })!;
+    });
     payload.data.pages.forEach((page) => {
       if (!merged.some((item) => item.slug === page.slug)) merged.push(page);
     });

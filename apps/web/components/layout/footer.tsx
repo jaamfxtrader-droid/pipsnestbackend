@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CreditCard, Instagram, Landmark, Linkedin, Send, Wallet, Youtube } from "lucide-react";
+import { CreditCard, Facebook, Github, Instagram, Landmark, Linkedin, Music2, Send, Twitter, Wallet, Youtube } from "lucide-react";
 import type { TranslationKey } from "@/lib/i18n";
 import { getCmsPages, type CmsPage } from "@/lib/cms";
 import { defaultSiteSettings, getSiteSettings } from "@/lib/site-settings";
@@ -51,6 +51,20 @@ const paymentBadges = [
   { label: "Skrill", icon: Wallet, className: "border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-200" }
 ];
 
+const socialIconMap = {
+  facebook: Facebook,
+  instagram: Instagram,
+  youtube: Youtube,
+  linkedin: Linkedin,
+  telegram: Send,
+  x: Twitter,
+  twitter: Twitter,
+  tiktok: Music2,
+  github: Github,
+  discord: Send,
+  whatsapp: Send
+};
+
 export function Footer() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState(defaultSiteSettings);
@@ -77,12 +91,13 @@ export function Footer() {
     };
   }, []);
 
-  const socialLinks = [
-    { href: settings.socialLinks.instagram, label: "Instagram", icon: Instagram },
-    { href: settings.socialLinks.youtube, label: "YouTube", icon: Youtube },
-    { href: settings.socialLinks.linkedin, label: "LinkedIn", icon: Linkedin },
-    { href: settings.socialLinks.telegram, label: "Telegram", icon: Send }
-  ].filter((social) => social.href);
+  const socialLinks = settings.socialItems
+    .filter((social) => social.enabled && social.url)
+    .map((social) => ({
+      href: social.url,
+      label: social.label,
+      icon: socialIconMap[social.type as keyof typeof socialIconMap] ?? Send
+    }));
   const staticFooterHrefs = new Set(columns.flatMap((column) => column.links.map(([, href]) => href)));
   const dynamicFooterLinks = cmsFooterLinks
     .map((page) => ({ href: page.slug === "home" ? "/" : `/${page.slug}`, label: page.metadata?.navLabel || page.title }))
@@ -159,21 +174,37 @@ export function Footer() {
           <div className="mt-3 grid gap-2">
             {settings.androidAppEnabled && !settings.androidAppComingSoon ? (
               <Link href={settings.androidAppUrl} target="_blank" rel="noreferrer" aria-label="Download on Google Play" className="inline-flex transition hover:opacity-90">
-                <Image src="/play-store-badge.svg" alt="Download on Google Play" width={210} height={62} className="h-auto max-w-full" />
+                {settings.androidBadgeImageUrl ? (
+                  <img src={settings.androidBadgeImageUrl} alt="Download on Google Play" className="h-auto max-h-[62px] max-w-[210px]" />
+                ) : (
+                  <Image src="/play-store-badge.svg" alt="Download on Google Play" width={210} height={62} className="h-auto max-w-full" />
+                )}
               </Link>
             ) : (
               <span className="relative inline-flex opacity-55">
-                <Image src="/play-store-badge.svg" alt="Google Play coming soon" width={210} height={62} className="h-auto max-w-full" />
+                {settings.androidBadgeImageUrl ? (
+                  <img src={settings.androidBadgeImageUrl} alt="Google Play coming soon" className="h-auto max-h-[62px] max-w-[210px]" />
+                ) : (
+                  <Image src="/play-store-badge.svg" alt="Google Play coming soon" width={210} height={62} className="h-auto max-w-full" />
+                )}
                 <span className="absolute -right-2 -top-2 rounded-full bg-warning px-2 py-1 text-[10px] font-black uppercase text-slate-950">Coming soon</span>
               </span>
             )}
             {settings.iosAppEnabled && !settings.iosAppComingSoon ? (
               <Link href={settings.iosAppUrl} target="_blank" rel="noreferrer" aria-label="Download on the App Store" className="inline-flex transition hover:opacity-90">
-                <Image src="/app-store-badge.svg" alt="Download on the App Store" width={210} height={62} className="h-auto max-w-full" />
+                {settings.iosBadgeImageUrl ? (
+                  <img src={settings.iosBadgeImageUrl} alt="Download on the App Store" className="h-auto max-h-[62px] max-w-[210px]" />
+                ) : (
+                  <Image src="/app-store-badge.svg" alt="Download on the App Store" width={210} height={62} className="h-auto max-w-full" />
+                )}
               </Link>
             ) : (
               <span className="relative inline-flex opacity-55">
-                <Image src="/app-store-badge.svg" alt="App Store coming soon" width={210} height={62} className="h-auto max-w-full" />
+                {settings.iosBadgeImageUrl ? (
+                  <img src={settings.iosBadgeImageUrl} alt="App Store coming soon" className="h-auto max-h-[62px] max-w-[210px]" />
+                ) : (
+                  <Image src="/app-store-badge.svg" alt="App Store coming soon" width={210} height={62} className="h-auto max-w-full" />
+                )}
                 <span className="absolute -right-2 -top-2 rounded-full bg-warning px-2 py-1 text-[10px] font-black uppercase text-slate-950">Coming soon</span>
               </span>
             )}

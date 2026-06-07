@@ -14,6 +14,8 @@ import {
   Plus,
   Save,
   Settings,
+  CheckCircle2,
+  Strikethrough,
   Trash2,
   Type,
   ChevronUp,
@@ -26,9 +28,15 @@ import {
   Tablet,
   Monitor,
   Navigation,
+  Search,
   Upload,
   Badge as BadgeIcon,
-  X
+  X,
+  FileText,
+  Globe2,
+  Layers,
+  ShieldCheck,
+  Clock3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +49,33 @@ import { cmsPageDrafts, mergeCmsPage, type CmsPage, type CmsSection } from "@/li
 
 type EditorTab = "content" | "seo" | "styling" | "preview";
 type SectionType = "block" | "grid" | "flex" | "carousel" | "media" | "split";
-type PreviewDevice = "desktop" | "tablet" | "mobile";
+type PreviewDevice =
+  | "desktop-1920"
+  | "desktop-1440"
+  | "desktop-1366"
+  | "desktop-1024"
+  | "tablet-1024"
+  | "tablet-834"
+  | "tablet-768"
+  | "mobile-430"
+  | "mobile-390"
+  | "mobile-360";
 type ThemeMode = "light" | "dark" | "both";
+
+const previewPresets: Array<{ group: "Desktop" | "Tablet" | "Mobile"; device: PreviewDevice; icon: typeof Monitor; label: string; width: number; height: number }> = [
+  { group: "Desktop", device: "desktop-1920", icon: Monitor, label: "1920x1080", width: 1920, height: 1080 },
+  { group: "Desktop", device: "desktop-1440", icon: Monitor, label: "1440x900", width: 1440, height: 900 },
+  { group: "Desktop", device: "desktop-1366", icon: Monitor, label: "1366x768", width: 1366, height: 768 },
+  { group: "Desktop", device: "desktop-1024", icon: Monitor, label: "1024x768", width: 1024, height: 768 },
+  { group: "Tablet", device: "tablet-1024", icon: Tablet, label: "1024x1366", width: 1024, height: 1366 },
+  { group: "Tablet", device: "tablet-834", icon: Tablet, label: "834x1194", width: 834, height: 1194 },
+  { group: "Tablet", device: "tablet-768", icon: Tablet, label: "768x1024", width: 768, height: 1024 },
+  { group: "Mobile", device: "mobile-430", icon: Smartphone, label: "430x932", width: 430, height: 932 },
+  { group: "Mobile", device: "mobile-390", icon: Smartphone, label: "390x844", width: 390, height: 844 },
+  { group: "Mobile", device: "mobile-360", icon: Smartphone, label: "360x800", width: 360, height: 800 }
+];
+
+const maxCmsImageBytes = 700 * 1024;
 
 const fixedPageNames: Record<string, string> = {
   home: "Landing Page / Home Page",
@@ -76,6 +109,53 @@ function fileToDataUrl(file: File) {
   });
 }
 
+function pagePublicHref(page?: CmsPage | null) {
+  if (!page) return "/";
+  if (page.slug === "home") return "/";
+  return `/${page.slug}`;
+}
+
+function formatUpdatedAt(value?: string) {
+  if (!value) return "Not saved yet";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not saved yet";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function getPageHealth(page: CmsPage) {
+  const sections = page.sections ?? [];
+  const visibleSections = sections.filter((section) => section.published !== false && section.isVisible !== false);
+  const issues = [
+    !page.metaTitle ? "SEO title missing" : "",
+    !page.metaDescription ? "SEO description missing" : "",
+    visibleSections.length === 0 ? "No visible sections" : "",
+    sections.some((section) => !section.title?.trim() || !section.content?.trim()) ? "Section copy incomplete" : ""
+  ].filter(Boolean);
+
+  return {
+    issues,
+    score: Math.max(0, 100 - issues.length * 25),
+    tone: issues.length === 0 ? "Ready" : issues.length <= 2 ? "Review" : "Needs work"
+  };
+}
+
+function getSectionScore(section?: CmsSection) {
+  if (!section) return { score: 0, label: "No section", issues: ["No section selected"] };
+  const issues = [
+    !section.label?.trim() ? "Label missing" : "",
+    !section.title?.trim() ? "Title missing" : "",
+    !section.content?.trim() ? "Description missing" : "",
+    section.content?.trim() && section.content.trim().length < 40 ? "Description is short" : "",
+    section.published === false || section.isVisible === false ? "Hidden from page" : ""
+  ].filter(Boolean);
+  const score = Math.max(0, 100 - issues.length * 20);
+  return { score, label: issues.length ? "Needs review" : "Strong", issues };
+}
+
+function publishLabel(published?: boolean) {
+  return published === false ? "Draft" : "Published";
+}
+
 function SwitchControl({
   checked,
   onChange,
@@ -106,6 +186,125 @@ function SwitchControl({
   );
 }
 
+function CustomSelect({
+  value,
+  options,
+  onChange,
+  className
+}: {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <div className={cn("relative", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        className="flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 text-left text-sm font-semibold text-slate-900 transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/10 dark:text-white"
+      >
+        <span className="truncate">{selected?.label ?? "Select"}</span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition", open ? "rotate-180" : "rotate-0")} />
+      </button>
+      {open ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-slate-950">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex h-10 w-full items-center justify-between gap-3 rounded px-3 text-left text-sm font-semibold transition",
+                option.value === value ? "bg-primary text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"
+              )}
+            >
+              <span className="truncate">{option.label}</span>
+              {option.value === value ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CmsEditorSkeleton() {
+  const statCards = ["", "", "", ""];
+  const pagePills = ["", "", "", "", ""];
+  const sectionRows = ["", "", "", "", ""];
+
+  return (
+    <div className="flex min-h-[calc(100dvh-5rem)] w-full max-w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950 lg:min-h-[calc(100dvh-8rem)]">
+      <div className="border-b border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.02] sm:p-4">
+        <div className="grid gap-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {statCards.map((_, index) => (
+              <div key={index} className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="h-3 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+                  <div className="h-8 w-8 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+                </div>
+                <div className="mt-3 h-7 w-14 animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+                <div className="mt-2 h-3 w-32 animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-3 xl:flex xl:items-center xl:justify-between">
+            <div className="h-11 min-w-0 flex-1 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+            <div className="flex flex-wrap gap-2 xl:ml-4">
+              <div className="h-10 w-28 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+              <div className="h-10 w-24 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+              <div className="h-10 w-28 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+            </div>
+          </div>
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden pb-1">
+            {pagePills.map((_, index) => (
+              <div key={index} className="h-16 min-w-[13rem] animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside className="border-b border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.02] lg:border-b-0 lg:border-r">
+          <div className="h-24 animate-pulse rounded-lg bg-slate-200 dark:bg-white/10" />
+          <div className="mt-4 space-y-3">
+            {sectionRows.map((_, index) => (
+              <div key={index} className="h-16 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+            ))}
+          </div>
+        </aside>
+        <section className="min-w-0 bg-white p-4 dark:bg-slate-950 sm:p-6">
+          <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+            <div className="space-y-4">
+              <div className="h-12 animate-pulse rounded-lg bg-slate-200 dark:bg-white/10" />
+              <div className="h-11 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+              <div className="h-40 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="h-24 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+                <div className="h-24 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="h-32 animate-pulse rounded-lg bg-slate-200 dark:bg-white/10" />
+              <div className="h-32 animate-pulse rounded-lg bg-slate-200 dark:bg-white/10" />
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 export default function AdvancedCmsEditor() {
   const pushToast = useToast((state) => state.push);
   const [pages, setPages] = useState<CmsPage[]>([]);
@@ -118,6 +317,8 @@ export default function AdvancedCmsEditor() {
   const [saving, setSaving] = useState(false);
   const [showNewSection, setShowNewSection] = useState(false);
   const [showNewPage, setShowNewPage] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showDeletePageConfirm, setShowDeletePageConfirm] = useState(false);
   const [deleteSectionIndex, setDeleteSectionIndex] = useState<number | null>(null);
   const [newPageForm, setNewPageForm] = useState({
     title: "",
@@ -125,11 +326,12 @@ export default function AdvancedCmsEditor() {
     navLabel: "",
     navPlacement: "footer" as "header" | "footer" | "both" | "hidden"
   });
-  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop-1920");
   const [textSelection, setTextSelection] = useState({ start: 0, end: 0 });
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [badgeText, setBadgeText] = useState("");
   const [badgeIcon, setBadgeIcon] = useState("");
+  const [pageQuery, setPageQuery] = useState("");
 
   const token = getStoredAuthToken("admin");
 
@@ -155,7 +357,8 @@ export default function AdvancedCmsEditor() {
             published: true,
             sections: []
           };
-          return mergeCmsPage(fallback, remoteBySlug.get(slug))!;
+          const remotePage = remoteBySlug.get(slug);
+          return mergeCmsPage(fallback, remotePage, { mergeDefaultSections: !remotePage || slug === "home" })!;
         })
         .map((page) => ({
           ...page,
@@ -205,14 +408,146 @@ export default function AdvancedCmsEditor() {
     setDraft({ ...draft, metadata: { ...(draft.metadata ?? {}), ...patch } });
   }
 
-  async function handleSectionImage(file?: File) {
-    if (!file || !currentSection) return;
-    const dataUrl = await fileToDataUrl(file);
-    if (dataUrl.length > 1_500_000) {
-      pushToast({ title: "Image is too large", message: "Please choose a smaller image for this section.", tone: "error" });
+  function updateSectionMetadata(patch: Record<string, any>) {
+    if (!currentSection) return;
+    updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ...patch } as any });
+  }
+
+  function sectionCtas() {
+    return (currentSection?.metadata?.ctas as Array<Record<string, any>> | undefined) ?? [];
+  }
+
+  function sectionCards() {
+    return (currentSection?.metadata?.cards as Array<Record<string, any>> | undefined) ?? [];
+  }
+
+  function sectionLists() {
+    return (currentSection?.metadata?.lists as Array<Record<string, any>> | undefined) ?? [];
+  }
+
+  function galleryImages() {
+    return (currentSection?.metadata?.images as string[] | undefined) ?? [];
+  }
+
+  function addSectionCta() {
+    const ctas = sectionCtas();
+    if (ctas.length >= 3) {
+      pushToast({ title: "CTA limit reached", message: "A section can have maximum 3 CTA buttons.", tone: "error" });
       return;
     }
+    updateSectionMetadata({
+      ctas: [...ctas, { id: `cta-${Date.now()}`, label: "Button", href: "/", style: "solid" }]
+    });
+  }
+
+  function updateSectionCta(index: number, patch: Record<string, any>) {
+    updateSectionMetadata({ ctas: sectionCtas().map((cta, i) => (i === index ? { ...cta, ...patch } : cta)) });
+  }
+
+  function removeSectionCta(index: number) {
+    updateSectionMetadata({ ctas: sectionCtas().filter((_, i) => i !== index) });
+  }
+
+  function addBuilderCard() {
+    const cards = sectionCards();
+    if (cards.length >= 10) {
+      pushToast({ title: "Card limit reached", message: "A section can have maximum 10 cards.", tone: "error" });
+      return;
+    }
+    updateSectionMetadata({
+      cards: [
+        ...cards,
+        {
+          id: `card-${Date.now()}`,
+          icon: "Star",
+          title: "Card title",
+          content: "Card content",
+          ctas: [{ id: `card-cta-${Date.now()}`, label: "Learn more", href: "/", style: "outline" }]
+        }
+      ]
+    });
+  }
+
+  function addSectionList() {
+    updateSectionMetadata({
+      lists: [...sectionLists(), { id: `list-${Date.now()}`, type: "bullet", title: "List title", items: ["First item", "Second item"] }]
+    });
+  }
+
+  function updateSectionList(index: number, patch: Record<string, any>) {
+    updateSectionMetadata({ lists: sectionLists().map((list, i) => (i === index ? { ...list, ...patch } : list)) });
+  }
+
+  function removeSectionList(index: number) {
+    updateSectionMetadata({ lists: sectionLists().filter((_, i) => i !== index) });
+  }
+
+  function updateCardList(cardIndex: number, value: string) {
+    updateBuilderCard(cardIndex, { listItems: value });
+  }
+
+  function updateBuilderCard(index: number, patch: Record<string, any>) {
+    updateSectionMetadata({ cards: sectionCards().map((card, i) => (i === index ? { ...card, ...patch } : card)) });
+  }
+
+  function removeBuilderCard(index: number) {
+    updateSectionMetadata({ cards: sectionCards().filter((_, i) => i !== index) });
+  }
+
+  function updateCardCta(cardIndex: number, ctaIndex: number, patch: Record<string, any>) {
+    const cards = sectionCards();
+    updateSectionMetadata({
+      cards: cards.map((card, index) =>
+        index === cardIndex ? { ...card, ctas: ((card.ctas as Array<Record<string, any>> | undefined) ?? []).map((cta, i) => (i === ctaIndex ? { ...cta, ...patch } : cta)) } : card
+      )
+    });
+  }
+
+  function addCardCta(cardIndex: number) {
+    const cards = sectionCards();
+    const card = cards[cardIndex];
+    const ctas = (card?.ctas as Array<Record<string, any>> | undefined) ?? [];
+    if (ctas.length >= 2) {
+      pushToast({ title: "Card CTA limit reached", message: "A card can have maximum 2 CTA buttons.", tone: "error" });
+      return;
+    }
+    updateBuilderCard(cardIndex, { ctas: [...ctas, { id: `card-cta-${Date.now()}`, label: "Button", href: "/", style: "outline" }] });
+  }
+
+  function removeCardCta(cardIndex: number, ctaIndex: number) {
+    const cards = sectionCards();
+    const card = cards[cardIndex];
+    const ctas = (card?.ctas as Array<Record<string, any>> | undefined) ?? [];
+    updateBuilderCard(cardIndex, { ctas: ctas.filter((_, i) => i !== ctaIndex) });
+  }
+
+  async function handleSectionImage(file?: File) {
+    if (!file || !currentSection) return;
+    if (file.size > maxCmsImageBytes) {
+      pushToast({ title: "Image is too large", message: "CMS images must be 700KB or smaller.", tone: "error" });
+      return;
+    }
+    const dataUrl = await fileToDataUrl(file);
     updateCurrentSection({ imageUrl: dataUrl });
+  }
+
+  async function handleGalleryImage(file?: File) {
+    if (!file || !currentSection) return;
+    const images = galleryImages();
+    if (images.length >= 5) {
+      pushToast({ title: "Image limit reached", message: "A section can have maximum 5 images.", tone: "error" });
+      return;
+    }
+    if (file.size > maxCmsImageBytes) {
+      pushToast({ title: "Image is too large", message: "CMS images must be 700KB or smaller.", tone: "error" });
+      return;
+    }
+    const dataUrl = await fileToDataUrl(file);
+    updateSectionMetadata({ images: [...images, dataUrl] });
+  }
+
+  function removeGalleryImage(index: number) {
+    updateSectionMetadata({ images: galleryImages().filter((_, i) => i !== index) });
   }
 
   async function handleSectionVideo(file?: File) {
@@ -327,7 +662,7 @@ export default function AdvancedCmsEditor() {
     setSelectedSectionIndex(newIndex);
   }
 
-  function applyTextFormatting(format: "bold" | "italic" | "link" | "code") {
+  function applyTextFormatting(format: "bold" | "italic" | "strike" | "link" | "code") {
     const textarea = document.querySelector("textarea[data-format-target]") as HTMLTextAreaElement;
     if (!textarea) return;
 
@@ -343,6 +678,9 @@ export default function AdvancedCmsEditor() {
         break;
       case "italic":
         formatted = `*${selectedText}*`;
+        break;
+      case "strike":
+        formatted = `~~${selectedText}~~`;
         break;
       case "link":
         formatted = `[${selectedText}](url)`;
@@ -418,6 +756,7 @@ export default function AdvancedCmsEditor() {
         message: "CMS page has been updated successfully.",
         tone: "success"
       });
+      setShowSaveConfirm(false);
     } catch (error) {
       pushToast({
         title: "Failed to save",
@@ -429,70 +768,166 @@ export default function AdvancedCmsEditor() {
     }
   }
 
+  const currentSection = draft?.sections?.[selectedSectionIndex];
+  const hasUnsavedChanges = useMemo(() => {
+    if (!draft || !selectedPage) return false;
+    return JSON.stringify(draft) !== JSON.stringify(selectedPage);
+  }, [draft, selectedPage]);
+  const cmsStats = useMemo(() => {
+    const totalSections = pages.reduce((total, page) => total + (page.sections?.length ?? 0), 0);
+    const publishedPages = pages.filter((page) => page.published !== false).length;
+    const pagesNeedingReview = pages.filter((page) => getPageHealth(page).issues.length > 0).length;
+    const customPages = pages.filter((page) => !editableSlugs.includes(page.slug)).length;
+
+    return { totalSections, publishedPages, pagesNeedingReview, customPages };
+  }, [pages]);
+  const filteredPages = useMemo(() => {
+    const query = pageQuery.trim().toLowerCase();
+    return pages
+      .map((page, index) => ({ page, index }))
+      .filter(({ page }) => {
+        if (!query) return true;
+        return [page.slug, page.title, pageDisplayName(page), page.metadata?.navLabel].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
+      });
+  }, [pageQuery, pages]);
+  const currentPageHealth = draft ? getPageHealth(draft) : null;
+  const selectedPageHref = pagePublicHref(draft);
+  const currentSectionScore = getSectionScore(currentSection);
+
   if (loading) {
-    return (
-      <div className="flex min-h-[24rem] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <CmsEditorSkeleton />;
   }
 
-  const currentSection = draft?.sections?.[selectedSectionIndex];
+  async function deleteCurrentPage() {
+    if (!draft || !token) return;
+    setSaving(true);
+    try {
+      await apiFetch(`/admin/cms/${encodeURIComponent(draft.slug)}`, {
+        method: "DELETE",
+        token
+      });
+      const remaining = pages.filter((page) => page.slug !== draft.slug);
+      setPages(remaining);
+      const nextIndex = Math.max(0, Math.min(selectedPageIndex, remaining.length - 1));
+      const nextPage = remaining[nextIndex] ?? null;
+      setSelectedPageIndex(nextIndex);
+      setSelectedPage(nextPage);
+      setDraft(nextPage ? JSON.parse(JSON.stringify(nextPage)) : null);
+      setSelectedSectionIndex(0);
+      setShowDeletePageConfirm(false);
+      pushToast({ title: "Page deleted", message: "CMS page has been deleted from the database.", tone: "success" });
+    } catch (error) {
+      pushToast({ title: "Delete failed", message: error instanceof Error ? error.message : "Please try again.", tone: "error" });
+    } finally {
+      setSaving(false);
+    }
+  }
 
-  // Responsive preview dimensions
-  const previewDimensions = {
-    desktop: { width: 1024, height: 768 },
-    tablet: { width: 768, height: 1024 },
-    mobile: { width: 360, height: 667 }
-  };
-
-  const currentDimensions = previewDimensions[previewDevice];
+  const currentPreset = previewPresets.find((preset) => preset.device === previewDevice) ?? previewPresets[0];
+  const currentDimensions = { width: currentPreset.width, height: currentPreset.height };
 
   return (
-    <div className="flex min-h-[calc(100dvh-8rem)] w-full max-w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950">
+    <div className="flex min-h-[calc(100dvh-5rem)] w-full max-w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950 lg:min-h-[calc(100dvh-8rem)]">
       {/* Page Selector */}
       <div className="border-b border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.02] sm:p-4">
-        <div className="grid gap-3 xl:flex xl:items-center xl:justify-between">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
-            {pages.map((page, idx) => (
-              <button
-                key={page.slug}
-                onClick={() => selectPage(idx)}
-                className={cn(
-                  "rounded-md px-4 py-2 text-sm font-semibold transition whitespace-nowrap",
-                  selectedPageIndex === idx
-                    ? "bg-primary text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-                )}
-              >
-                {pageDisplayName(page)}
-              </button>
+        <div className="grid gap-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: "CMS pages", value: pages.length, helper: `${cmsStats.publishedPages} published`, Icon: FileText },
+              { label: "Sections", value: cmsStats.totalSections, helper: "Editable content blocks", Icon: Layers },
+              { label: "Need review", value: cmsStats.pagesNeedingReview, helper: "SEO or copy gaps", Icon: ShieldCheck },
+              { label: "Custom pages", value: cmsStats.customPages, helper: "Client-created pages", Icon: Globe2 }
+            ].map(({ label, value, helper, Icon }) => (
+              <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</span>
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary dark:bg-primary/20">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{value}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{helper}</p>
+              </div>
             ))}
           </div>
-          {/* Page Navigation */}
-          <div className="flex flex-wrap gap-2 xl:ml-4 xl:flex-shrink-0">
-            <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={() => setShowNewPage(true)}>
-              <Plus className="h-4 w-4" />
-              New page
-            </Button>
-            <button
-              type="button"
-              onClick={() => selectPage(Math.max(0, selectedPageIndex - 1))}
-              disabled={selectedPageIndex === 0}
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
-            >
-              <ChevronUp className="h-4 w-4" />
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => selectPage(Math.min(pages.length - 1, selectedPageIndex + 1))}
-              disabled={selectedPageIndex === pages.length - 1}
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
-            >
-              <ChevronDown className="h-4 w-4" />
-              Next
-            </button>
+
+          <div className="grid gap-3 xl:flex xl:items-center xl:justify-between">
+            <label className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={pageQuery}
+                onChange={(event) => setPageQuery(event.target.value)}
+                placeholder="Search CMS pages by title, slug, or nav label"
+                className="pl-9"
+              />
+            </label>
+            {/* Page Navigation */}
+            <div className="flex flex-wrap gap-2 xl:ml-4 xl:flex-shrink-0">
+              <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={() => setShowNewPage(true)}>
+                <Plus className="h-4 w-4" />
+                New page
+              </Button>
+              <a
+                href={selectedPageHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open
+              </a>
+              <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => setShowDeletePageConfirm(true)} disabled={!draft || draft.slug === "home"}>
+                <Trash2 className="h-4 w-4" />
+                Delete page
+              </Button>
+              <button
+                type="button"
+                onClick={() => selectPage(Math.max(0, selectedPageIndex - 1))}
+                disabled={selectedPageIndex === 0}
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+              >
+                <ChevronUp className="h-4 w-4" />
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => selectPage(Math.min(pages.length - 1, selectedPageIndex + 1))}
+                disabled={selectedPageIndex === pages.length - 1}
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+              >
+                <ChevronDown className="h-4 w-4" />
+                Next
+              </button>
+            </div>
+          </div>
+
+          <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1">
+            {filteredPages.map(({ page, index }) => {
+              const health = getPageHealth(page);
+
+              return (
+                <button
+                  key={page.slug}
+                  onClick={() => selectPage(index)}
+                  className={cn(
+                    "min-w-[13rem] rounded-md border px-3 py-2 text-left transition",
+                    selectedPageIndex === index
+                      ? "border-primary bg-primary text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-primary/40 hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/10"
+                  )}
+                >
+                  <span className="block truncate text-sm font-black">{pageDisplayName(page)}</span>
+                  <span className={cn("mt-1 inline-flex rounded px-2 py-0.5 text-[11px] font-black", selectedPageIndex === index ? "bg-white/20 text-white" : health.issues.length ? "bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300")}>
+                    {health.tone}
+                  </span>
+                </button>
+              );
+            })}
+            {filteredPages.length === 0 ? (
+              <div className="rounded-md border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500 dark:border-white/10 dark:text-slate-400">
+                No CMS pages match this search.
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -533,6 +968,10 @@ export default function AdvancedCmsEditor() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {section.sectionType || "block"}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {section.published === false ? <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-700 dark:bg-white/10 dark:text-slate-300">Draft</span> : null}
+                      {section.isVisible === false ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">Hidden</span> : null}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -544,6 +983,86 @@ export default function AdvancedCmsEditor() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {currentSection ? (
             <>
+              <div className="border-b border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.02] sm:p-4">
+                <div className="grid gap-3 xl:flex xl:items-center xl:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-lg font-black text-slate-950 dark:text-white">{draft?.title}</h2>
+                      <span
+                        className={cn(
+                          "inline-flex rounded px-2 py-1 text-xs font-black",
+                          currentPageHealth?.issues.length
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300"
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                        )}
+                      >
+                        {currentPageHealth?.score ?? 0}% health
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex rounded px-2 py-1 text-xs font-black",
+                          currentSectionScore.score >= 80
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300"
+                        )}
+                      >
+                        Section {currentSectionScore.score}% · {currentSectionScore.label}
+                      </span>
+                      {hasUnsavedChanges ? (
+                        <span className="inline-flex rounded bg-blue-100 px-2 py-1 text-xs font-black text-blue-700 dark:bg-blue-400/10 dark:text-blue-300">
+                          Unsaved changes
+                        </span>
+                      ) : null}
+                      <span
+                        className={cn(
+                          "inline-flex rounded px-2 py-1 text-xs font-black",
+                          draft?.published === false
+                            ? "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                            : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-blue-300"
+                        )}
+                      >
+                        Page {publishLabel(draft?.published)}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex rounded px-2 py-1 text-xs font-black",
+                          currentSection?.published === false || currentSection?.isVisible === false
+                            ? "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                            : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-blue-300"
+                        )}
+                      >
+                        Section {currentSection?.isVisible === false ? "Hidden" : publishLabel(currentSection?.published)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      <span>/{draft?.slug}</span>
+                      <span>{draft?.sections?.length ?? 0} sections</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        {formatUpdatedAt(draft?.updatedAt)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(currentPageHealth?.issues ?? []).slice(0, 3).map((issue) => (
+                      <span key={issue} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
+                        {issue}
+                      </span>
+                    ))}
+                    {currentSectionScore.issues.slice(0, 2).map((issue) => (
+                      <span key={`section-${issue}`} className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-200">
+                        {issue}
+                      </span>
+                    ))}
+                    {currentPageHealth?.issues.length === 0 ? (
+                      <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
+                        Ready to publish
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
               {/* Tabs */}
               <div className="flex overflow-x-auto border-b border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.02]">
                 {(["content", "seo", "styling", "preview"] as const).map((tab) => (
@@ -590,17 +1109,25 @@ export default function AdvancedCmsEditor() {
                         </label>
                         <label className="grid gap-2 text-sm font-semibold">
                           Show page link
-                          <select
+                          <CustomSelect
                             value={draft?.metadata?.navPlacement ?? "footer"}
-                            onChange={(e) => updatePageMetadata({ navPlacement: e.target.value })}
-                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-                          >
-                            <option value="hidden">Hidden from navigation</option>
-                            <option value="footer">Footer only</option>
-                            <option value="header">Header dropdown</option>
-                            <option value="both">Header dropdown and footer</option>
-                          </select>
+                            onChange={(value) => updatePageMetadata({ navPlacement: value })}
+                            options={[
+                              { value: "hidden", label: "Hidden from navigation" },
+                              { value: "footer", label: "Footer only" },
+                              { value: "header", label: "Header dropdown" },
+                              { value: "both", label: "Header dropdown and footer" }
+                            ]}
+                          />
                         </label>
+                        <div className="md:col-span-2">
+                          <SwitchControl
+                            checked={draft?.published !== false}
+                            onChange={(checked) => draft && setDraft({ ...draft, published: checked })}
+                            label={draft?.published === false ? "Page is draft" : "Page is published"}
+                            description="Draft pages can be edited and saved before they appear on the public website."
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -619,18 +1146,18 @@ export default function AdvancedCmsEditor() {
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
                         Section Type
                       </label>
-                      <select
+                      <CustomSelect
                         value={currentSection.sectionType || "block"}
-                        onChange={(e) => updateCurrentSection({ sectionType: e.target.value as SectionType })}
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-                      >
-                        <option value="block">Block</option>
-                        <option value="grid">Grid</option>
-                        <option value="flex">Flex</option>
-                        <option value="carousel">Carousel</option>
-                        <option value="media">Media</option>
-                        <option value="split">Split</option>
-                      </select>
+                        onChange={(value) => updateCurrentSection({ sectionType: value as SectionType })}
+                        options={[
+                          { value: "block", label: "Block" },
+                          { value: "grid", label: "Grid" },
+                          { value: "flex", label: "Flex" },
+                          { value: "carousel", label: "Carousel" },
+                          { value: "media", label: "Media" },
+                          { value: "split", label: "Split" }
+                        ]}
+                      />
                     </div>
 
                     <div>
@@ -701,6 +1228,13 @@ export default function AdvancedCmsEditor() {
                           title="Italic"
                         >
                           <Italic className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => applyTextFormatting("strike")}
+                          className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-300"
+                          title="Strikethrough"
+                        >
+                          <Strikethrough className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => applyTextFormatting("link")}
@@ -791,17 +1325,17 @@ export default function AdvancedCmsEditor() {
                         </label>
                         <label className="grid gap-2 text-sm font-semibold">
                           Image position
-                          <select
+                          <CustomSelect
                             value={String(currentSection.position ?? 0)}
-                            onChange={(e) => updateCurrentSection({ position: Number(e.target.value) })}
-                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-                          >
-                            <option value="0">Top</option>
-                            <option value="1">Left</option>
-                            <option value="2">Right</option>
-                            <option value="3">Bottom</option>
-                            <option value="4">Background</option>
-                          </select>
+                            onChange={(value) => updateCurrentSection({ position: Number(value) })}
+                            options={[
+                              { value: "0", label: "Top" },
+                              { value: "1", label: "Left" },
+                              { value: "2", label: "Right" },
+                              { value: "3", label: "Bottom" },
+                              { value: "4", label: "Background" }
+                            ]}
+                          />
                         </label>
                         <label className="grid gap-2 text-sm font-semibold">
                           Icon name
@@ -811,20 +1345,226 @@ export default function AdvancedCmsEditor() {
                     </div>
 
                     <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">Image gallery</h3>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Optional. Add up to 5 images per section.</p>
+                        </div>
+                        <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
+                          <Upload className="h-4 w-4" />
+                          Add image
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={(event) => {
+                              void handleGalleryImage(event.target.files?.[0]);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                        {galleryImages().map((image, index) => (
+                          <div key={`${image.slice(0, 24)}-${index}`} className="relative overflow-hidden rounded-md border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.04]">
+                            <img src={image} alt="" className="aspect-video w-full object-cover" />
+                            <button type="button" onClick={() => removeGalleryImage(index)} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-md bg-slate-950/70 text-white">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {galleryImages().length === 0 ? (
+                          <div className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-semibold text-slate-500 dark:border-white/10 dark:text-slate-400 sm:col-span-2 lg:col-span-5">
+                            No gallery images added. This is optional.
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">Section CTA buttons</h3>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Optional. Add up to 3 section buttons with individual styles.</p>
+                        </div>
+                        <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={addSectionCta}>
+                          <Plus className="h-4 w-4" />
+                          Add CTA
+                        </Button>
+                      </div>
+                      <div className="grid gap-3">
+                        {sectionCtas().map((cta, index) => (
+                          <div key={cta.id ?? index} className="grid min-w-0 gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_12rem_auto] md:items-end">
+                            <label className="grid gap-2 text-sm font-semibold">
+                              Label
+                              <Input value={cta.label ?? ""} onChange={(e) => updateSectionCta(index, { label: e.target.value })} />
+                            </label>
+                            <label className="grid gap-2 text-sm font-semibold">
+                              Link
+                              <Input value={cta.href ?? ""} onChange={(e) => updateSectionCta(index, { href: e.target.value })} />
+                            </label>
+                            <label className="grid gap-2 text-sm font-semibold">
+                              Type
+                              <CustomSelect
+                                value={cta.style ?? "solid"}
+                                onChange={(value) => updateSectionCta(index, { style: value })}
+                                options={[
+                                  { value: "solid", label: "BG button" },
+                                  { value: "outline", label: "Border transparent" },
+                                  { value: "soft", label: "Soft BG" },
+                                  { value: "ghost", label: "Transparent" }
+                                ]}
+                              />
+                            </label>
+                            <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeSectionCta(index)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        {sectionCtas().length === 0 ? <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">No extra CTA buttons. The legacy single CTA above will still work.</p> : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">Section lists</h3>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Optional. Add bullet, numbered, or check lists to this section.</p>
+                        </div>
+                        <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={addSectionList}>
+                          <Plus className="h-4 w-4" />
+                          Add list
+                        </Button>
+                      </div>
+                      <div className="grid gap-3">
+                        {sectionLists().map((list, index) => (
+                          <div key={list.id ?? index} className="grid min-w-0 gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-end">
+                            <label className="grid gap-2 text-sm font-semibold">
+                              List title
+                              <Input value={list.title ?? ""} onChange={(e) => updateSectionList(index, { title: e.target.value })} />
+                            </label>
+                            <label className="grid gap-2 text-sm font-semibold">
+                              List type
+                              <CustomSelect
+                                value={list.type ?? "bullet"}
+                                onChange={(value) => updateSectionList(index, { type: value })}
+                                options={[
+                                  { value: "bullet", label: "Bullet list" },
+                                  { value: "number", label: "Numbered list" },
+                                  { value: "check", label: "Check list" }
+                                ]}
+                              />
+                            </label>
+                            <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeSectionList(index)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <label className="grid gap-2 text-sm font-semibold md:col-span-3">
+                              Items
+                              <textarea
+                                value={Array.isArray(list.items) ? list.items.join("\n") : ""}
+                                onChange={(e) => updateSectionList(index, { items: e.target.value.split("\n").filter((item) => item.trim()) })}
+                                placeholder="One item per line"
+                                className="h-24 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                              />
+                            </label>
+                          </div>
+                        ))}
+                        {sectionLists().length === 0 ? <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">No lists added. This is optional.</p> : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">Cards builder</h3>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Optional. Build 1 to 10 cards, each with an icon and up to 2 buttons.</p>
+                        </div>
+                        <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={addBuilderCard}>
+                          <Plus className="h-4 w-4" />
+                          Add card
+                        </Button>
+                      </div>
+                      <div className="grid gap-4">
+                        {sectionCards().map((card, cardIndex) => {
+                          const cardCtas = (card.ctas as Array<Record<string, any>> | undefined) ?? [];
+                          return (
+                            <div key={card.id ?? cardIndex} className="min-w-0 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                              <div className="grid gap-3 md:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <Input value={card.icon ?? ""} onChange={(e) => updateBuilderCard(cardIndex, { icon: e.target.value })} placeholder="Star" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Card title
+                                  <Input value={card.title ?? ""} onChange={(e) => updateBuilderCard(cardIndex, { title: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Card text
+                                  <Input value={card.content ?? ""} onChange={(e) => updateBuilderCard(cardIndex, { content: e.target.value })} />
+                                </label>
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeBuilderCard(cardIndex)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <label className="mt-3 grid gap-2 text-sm font-semibold">
+                                Card list items
+                                <textarea
+                                  value={card.listItems ?? ""}
+                                  onChange={(e) => updateCardList(cardIndex, e.target.value)}
+                                  placeholder="One item per line"
+                                  className="h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                                />
+                              </label>
+                              <div className="mt-3 grid gap-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Card buttons</span>
+                                  <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={() => addCardCta(cardIndex)}>
+                                    <Plus className="h-4 w-4" />
+                                    Add
+                                  </Button>
+                                </div>
+                                {cardCtas.map((cta, ctaIndex) => (
+                                  <div key={cta.id ?? ctaIndex} className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_12rem_auto] md:items-end">
+                                    <Input value={cta.label ?? ""} onChange={(e) => updateCardCta(cardIndex, ctaIndex, { label: e.target.value })} placeholder="Button label" />
+                                    <Input value={cta.href ?? ""} onChange={(e) => updateCardCta(cardIndex, ctaIndex, { href: e.target.value })} placeholder="/link" />
+                                    <CustomSelect
+                                      value={cta.style ?? "outline"}
+                                      onChange={(value) => updateCardCta(cardIndex, ctaIndex, { style: value })}
+                                      options={[
+                                        { value: "solid", label: "BG button" },
+                                        { value: "outline", label: "Border transparent" },
+                                        { value: "soft", label: "Soft BG" },
+                                        { value: "ghost", label: "Transparent" }
+                                      ]}
+                                    />
+                                    <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeCardCta(cardIndex, ctaIndex)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {sectionCards().length === 0 ? <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">No cards added yet. This section can stay as plain content.</p> : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
                       <h3 className="mb-4 text-sm font-black text-slate-900 dark:text-white">CTA button controls</h3>
                       <div className="grid gap-4 md:grid-cols-3">
                         <label className="grid gap-2 text-sm font-semibold">
                           CTA style
-                          <select
+                          <CustomSelect
                             value={currentSection.metadata?.ctaStyle ?? "solid"}
-                            onChange={(e) => updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ctaStyle: e.target.value } as any })}
-                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-                          >
-                            <option value="solid">Background button</option>
-                            <option value="outline">Border button</option>
-                            <option value="solid-icon">Background with icon</option>
-                            <option value="outline-icon">Border with icon</option>
-                          </select>
+                            onChange={(value) => updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ctaStyle: value } as any })}
+                            options={[
+                              { value: "solid", label: "Background button" },
+                              { value: "outline", label: "Border button" },
+                              { value: "solid-icon", label: "Background with icon" },
+                              { value: "outline-icon", label: "Border with icon" }
+                            ]}
+                          />
                         </label>
                         <label className="grid gap-2 text-sm font-semibold">
                           CTA icon
@@ -832,15 +1572,15 @@ export default function AdvancedCmsEditor() {
                         </label>
                         <label className="grid gap-2 text-sm font-semibold">
                           Link target
-                          <select
+                          <CustomSelect
                             value={currentSection.metadata?.ctaTarget ?? "_self"}
-                            onChange={(e) => updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ctaTarget: e.target.value } as any })}
-                            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-                          >
-                            <option value="_self">Same tab</option>
-                            <option value="_blank">New tab</option>
-                            <option value="new-window">New window</option>
-                          </select>
+                            onChange={(value) => updateCurrentSection({ metadata: { ...(currentSection.metadata ?? {}), ctaTarget: value } as any })}
+                            options={[
+                              { value: "_self", label: "Same tab" },
+                              { value: "_blank", label: "New tab" },
+                              { value: "new-window", label: "New window" }
+                            ]}
+                          />
                         </label>
                       </div>
                     </div>
@@ -984,17 +1724,77 @@ export default function AdvancedCmsEditor() {
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
                         Color Scheme
                       </label>
-                      <select
+                      <CustomSelect
                         value={currentSection.colorScheme || ""}
-                        onChange={(e) => updateCurrentSection({ colorScheme: e.target.value || undefined })}
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-                      >
-                        <option value="">Auto (Light/Dark)</option>
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                        <option value="primary">Primary</option>
-                        <option value="accent">Accent</option>
-                      </select>
+                        onChange={(value) => updateCurrentSection({ colorScheme: value || undefined })}
+                        options={[
+                          { value: "", label: "Auto (Light/Dark)" },
+                          { value: "light", label: "Light" },
+                          { value: "dark", label: "Dark" },
+                          { value: "primary", label: "Primary" },
+                          { value: "accent", label: "Accent" }
+                        ]}
+                      />
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4 dark:border-white/10">
+                      <h3 className="mb-4 text-sm font-black text-slate-900 dark:text-white">Section style controls</h3>
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Background mode
+                          <CustomSelect
+                            value={currentSection.metadata?.backgroundMode ?? "auto"}
+                            onChange={(value) => updateSectionMetadata({ backgroundMode: value })}
+                            options={[
+                              { value: "auto", label: "Auto" },
+                              { value: "transparent", label: "Transparent" },
+                              { value: "light", label: "Light" },
+                              { value: "dark", label: "Dark" }
+                            ]}
+                          />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Title size
+                          <Input value={currentSection.metadata?.titleFontSize ?? ""} onChange={(e) => updateSectionMetadata({ titleFontSize: e.target.value })} placeholder="36px or 2.25rem" />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Subtitle size
+                          <Input value={currentSection.metadata?.subtitleFontSize ?? ""} onChange={(e) => updateSectionMetadata({ subtitleFontSize: e.target.value })} placeholder="14px" />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Paragraph size
+                          <Input value={currentSection.metadata?.paragraphFontSize ?? ""} onChange={(e) => updateSectionMetadata({ paragraphFontSize: e.target.value })} placeholder="16px" />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Bold text size
+                          <Input value={currentSection.metadata?.boldFontSize ?? ""} onChange={(e) => updateSectionMetadata({ boldFontSize: e.target.value })} placeholder="inherit or 18px" />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Title color
+                          <Input type="color" value={currentSection.metadata?.titleColor ?? "#0f172a"} onChange={(e) => updateSectionMetadata({ titleColor: e.target.value })} />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Subtitle color
+                          <Input type="color" value={currentSection.metadata?.subtitleColor ?? "#2563eb"} onChange={(e) => updateSectionMetadata({ subtitleColor: e.target.value })} />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Paragraph color
+                          <Input type="color" value={currentSection.metadata?.paragraphColor ?? "#475569"} onChange={(e) => updateSectionMetadata({ paragraphColor: e.target.value })} />
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Card background
+                          <Input type="color" value={currentSection.metadata?.cardBackgroundColor ?? "#ffffff"} onChange={(e) => updateSectionMetadata({ cardBackgroundColor: e.target.value })} />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <SwitchControl
+                        checked={currentSection.published !== false}
+                        onChange={(checked) => updateCurrentSection({ published: checked })}
+                        label={currentSection.published === false ? "Section is draft" : "Section is published"}
+                        description="Save section drafts before showing them on the public page."
+                      />
                     </div>
 
                     <div>
@@ -1010,25 +1810,28 @@ export default function AdvancedCmsEditor() {
 
                 {activeTab === "preview" && (
                   <div className="mx-auto w-full max-w-6xl overflow-hidden">
-                    <div className="mb-6 flex flex-wrap justify-center gap-2">
-                      {[
-                        { device: "mobile" as PreviewDevice, icon: Smartphone, label: "Mobile" },
-                        { device: "tablet" as PreviewDevice, icon: Tablet, label: "Tablet" },
-                        { device: "desktop" as PreviewDevice, icon: Monitor, label: "Desktop" }
-                      ].map(({ device, icon: Icon, label }) => (
-                        <button
-                          key={device}
-                          onClick={() => setPreviewDevice(device)}
-                          className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-md transition",
-                            previewDevice === device
-                              ? "bg-primary text-white"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-                          )}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {label}
-                        </button>
+                    <div className="mb-6 grid gap-3">
+                      {(["Desktop", "Tablet", "Mobile"] as const).map((group) => (
+                        <div key={group} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                          <div className="mb-2 text-xs font-black uppercase text-slate-500 dark:text-slate-400">{group} views</div>
+                          <div className="flex flex-wrap gap-2">
+                            {previewPresets.filter((preset) => preset.group === group).map(({ device, icon: Icon, label }) => (
+                              <button
+                                key={device}
+                                onClick={() => setPreviewDevice(device)}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition",
+                                  previewDevice === device
+                                    ? "bg-primary text-white"
+                                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
 
@@ -1036,7 +1839,7 @@ export default function AdvancedCmsEditor() {
                       <div
                         style={{
                           width: "min(100%, " + currentDimensions.width + "px)",
-                          minHeight: Math.min(currentDimensions.height, 760)
+                          minHeight: Math.min(currentDimensions.height, 1080)
                         }}
                         className="mx-auto overflow-hidden rounded-lg border-4 border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
                       >
@@ -1092,7 +1895,7 @@ export default function AdvancedCmsEditor() {
               </div>
 
               {/* Section Controls */}
-              <div className="flex flex-col gap-3 border-t border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <div className="sticky bottom-0 z-30 flex flex-col gap-3 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-slate-950/95 sm:flex-row sm:items-center sm:justify-between sm:p-4">
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
@@ -1121,10 +1924,15 @@ export default function AdvancedCmsEditor() {
                     Delete
                   </Button>
                 </div>
-                <Button onClick={savePage} disabled={saving} className="w-full justify-center sm:w-auto">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Changes
-                </Button>
+                <div className="flex flex-col gap-2 sm:items-end">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {hasUnsavedChanges ? "Review and save before opening the public page." : "All local edits are saved for this page."}
+                  </p>
+                  <Button onClick={() => setShowSaveConfirm(true)} disabled={saving || !draft} className="w-full justify-center sm:w-auto">
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                    {hasUnsavedChanges ? "Save Changes" : "Saved"}
+                  </Button>
+                </div>
               </div>
             </>
           ) : (
@@ -1180,16 +1988,16 @@ export default function AdvancedCmsEditor() {
           </label>
           <label className="grid gap-2 text-sm font-semibold">
             Show page link
-            <select
+            <CustomSelect
               value={newPageForm.navPlacement}
-              onChange={(e) => setNewPageForm((current) => ({ ...current, navPlacement: e.target.value as typeof current.navPlacement }))}
-              className="h-10 rounded-md border border-slate-300 bg-white px-3 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-            >
-              <option value="footer">Footer only</option>
-              <option value="header">Header dropdown</option>
-              <option value="both">Header dropdown and footer</option>
-              <option value="hidden">Hidden from navigation</option>
-            </select>
+              onChange={(value) => setNewPageForm((current) => ({ ...current, navPlacement: value as typeof current.navPlacement }))}
+              options={[
+                { value: "footer", label: "Footer only" },
+                { value: "header", label: "Header dropdown" },
+                { value: "both", label: "Header dropdown and footer" },
+                { value: "hidden", label: "Hidden from navigation" }
+              ]}
+            />
           </label>
           <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
             <Button variant="secondary" onClick={() => setShowNewPage(false)}>Cancel</Button>
@@ -1208,6 +2016,39 @@ export default function AdvancedCmsEditor() {
             <Button variant="danger" onClick={() => deleteSection(deleteSectionIndex ?? 0)}>
               <Trash2 className="h-4 w-4" />
               Delete section
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showDeletePageConfirm} title="Delete CMS Page" onClose={() => setShowDeletePageConfirm(false)}>
+        <div className="p-4">
+          <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+            This will delete the saved CMS database record for <strong>{draft?.title}</strong>. If this is a built-in template page, the default fallback content can appear again after reload.
+          </p>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setShowDeletePageConfirm(false)} disabled={saving}>Cancel</Button>
+            <Button variant="danger" onClick={deleteCurrentPage} disabled={saving || !draft || draft.slug === "home"}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete page
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showSaveConfirm} title="Save CMS Changes" onClose={() => setShowSaveConfirm(false)}>
+        <div className="p-4">
+          <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+            This will update the selected CMS page and its sections in the database. Public CMS pages will use this saved content immediately after refresh.
+          </p>
+          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
+            Page: {draft?.title ?? "Selected page"} / Section: {currentSection?.label ?? "Current section"}
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setShowSaveConfirm(false)}>Cancel</Button>
+            <Button onClick={savePage} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save now
             </Button>
           </div>
         </div>

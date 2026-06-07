@@ -1000,6 +1000,18 @@ adminRouter.post(
   })
 );
 
+adminRouter.delete(
+  "/cms/:slug",
+  asyncHandler(async (req, res) => {
+    await assertCanManageCmsPage(req.user!.id, req.user!.role, req.params.slug);
+    const existing = await prisma.cmsPage.findUnique({ where: { slug: req.params.slug } });
+    if (!existing) throw new HttpError(404, "CMS page was not found");
+
+    await prisma.cmsPage.delete({ where: { slug: req.params.slug } });
+    sendSuccess(res, { message: "CMS page has been deleted." });
+  })
+);
+
 adminRouter.post(
   "/cms/publish-all",
   asyncHandler(async (req, res) => {
