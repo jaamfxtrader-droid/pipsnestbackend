@@ -1,4 +1,6 @@
-import { LegalPage } from "@/components/layout/legal-page";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
+import { accountDeletionSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -8,35 +10,13 @@ export const metadata = pageMetadata({
   keywords: ["account deletion", "delete account", "personal data deletion"]
 });
 
-const sections = [
-  {
-    title: "How to request deletion",
-    body: [
-      "You can request deletion of your PipNest Markets account from inside the mobile app by opening Profile, then Account deletion, then Request account deletion.",
-      "You can also email contact@pipnestmarkets.com from the email address registered on your account with the subject Account deletion request."
-    ]
-  },
-  {
-    title: "What happens next",
-    body: [
-      "Our support team verifies the request, reviews any open orders, payouts, disputes, security flags, or legal obligations, and then processes eligible account and personal data deletion.",
-      "Some records may be retained where required for fraud prevention, security, accounting, dispute resolution, legal, or regulatory compliance."
-    ]
-  },
-  {
-    title: "Contact",
-    body: [
-      "For deletion questions, contact PipNest Markets at contact@pipnestmarkets.com."
-    ]
-  }
-];
-
-export default function AccountDeletionPage() {
+export default async function AccountDeletionPage() {
+  const page = await getCmsPage("account-deletion");
   return (
     <LegalPage
-      title="Account Deletion"
-      summary="How PipNest Markets users can request deletion of their account and associated personal data."
-      sections={sections}
+      title={page?.title ?? "Account Deletion"}
+      summary={page?.content ?? "How PipNest Markets users can request deletion of their account and associated personal data."}
+      sections={cmsLegalSections(page, accountDeletionSections)}
     />
   );
 }

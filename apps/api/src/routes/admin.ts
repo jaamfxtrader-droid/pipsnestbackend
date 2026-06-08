@@ -74,7 +74,7 @@ const cmsSectionSchema = z.object({
   label: z.string().min(1),
   eyebrow: z.string().optional().nullable(),
   title: z.string().min(1),
-  content: z.string().min(1),
+  content: z.string(),
   ctaLabel: z.string().optional().nullable(),
   ctaHref: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().default(0),
@@ -91,9 +91,9 @@ const cmsSectionSchema = z.object({
 const cmsSchema = z.object({
   slug: z.string().min(2),
   title: z.string().min(2),
-  content: z.string().min(5),
-  metaTitle: z.string().optional(),
-  metaDescription: z.string().optional(),
+  content: z.string(),
+  metaTitle: z.string().optional().nullable(),
+  metaDescription: z.string().optional().nullable(),
   metadata: z.record(z.any()).optional().nullable(),
   published: z.boolean().optional(),
   sections: z.array(cmsSectionSchema).optional()

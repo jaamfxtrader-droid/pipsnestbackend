@@ -9,6 +9,8 @@ type LegalPageProps = {
   summary?: string;
   sections?: LegalSection[];
   children?: ReactNode;
+  selectedSectionIndex?: number;
+  onSectionSelect?: (index: number) => void;
 };
 
 const trustCards = [
@@ -22,12 +24,12 @@ export function cmsLegalSections(page?: CmsPage, fallback: LegalSection[] = []) 
   if (!visibleSections.length) return fallback;
   return visibleSections.map((section) => ({
     title: section.title,
-    body: section.content ? [section.content] : [],
+    body: section.content ? section.content.split(/\n{2,}/).filter(Boolean) : [],
     bullets: Array.isArray(section.metadata?.bullets) ? section.metadata.bullets : undefined
   }));
 }
 
-export function LegalPage({ title, eyebrow = "Legal", summary, sections, children }: LegalPageProps) {
+export function LegalPage({ title, eyebrow = "Legal", summary, sections, children, selectedSectionIndex, onSectionSelect }: LegalPageProps) {
   return (
     <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
@@ -62,7 +64,15 @@ export function LegalPage({ title, eyebrow = "Legal", summary, sections, childre
           const Icon = section.title.toLowerCase().includes("risk") ? AlertTriangle : index === 0 ? FileText : CheckCircle2;
 
           return (
-            <article key={section.title} className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.035]">
+            <article
+              key={section.title}
+              onClick={onSectionSelect ? () => onSectionSelect(index) : undefined}
+              className={`rounded-lg border bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] dark:bg-white/[0.035] ${
+                selectedSectionIndex === index
+                  ? "border-primary ring-2 ring-primary/30"
+                  : "border-slate-200 dark:border-white/10"
+              } ${onSectionSelect ? "cursor-pointer transition hover:border-primary/60" : ""}`}
+            >
               <div className="flex items-start gap-4">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />

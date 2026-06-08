@@ -188,6 +188,89 @@ export const faqItems: FaqItem[] = [
   }
 ];
 
+export const aboutSections: LegalSection[] = [
+  {
+    title: "Built for disciplined traders",
+    body: [
+      "PipNest Markets is built around a simple idea: skilled traders should have a clean, transparent, and professional path to simulated funded accounts without confusing rules or scattered workflows.",
+      "The platform combines public funding information, trader dashboards, challenge tracking, payout workflows, support, affiliate tools, and admin controls into one connected operating system."
+    ]
+  },
+  {
+    title: "Clear evaluation experience",
+    body: [
+      "Every challenge is designed to keep account size, price, profit target, drawdown limits, leverage, and minimum trading days visible before and after purchase.",
+      "Traders can compare programs, purchase from the dashboard, monitor status, and keep rule expectations in view throughout the journey."
+    ]
+  },
+  {
+    title: "Operational transparency",
+    body: [
+      "Admins can manage challenges, users, orders, trading accounts, top-ups, payouts, coupons, support, affiliate activity, and CMS content from protected dashboards.",
+      "This keeps public content, trader activity, and back-office actions aligned without changing the design of the live website."
+    ]
+  },
+  {
+    title: "Platform-ready foundation",
+    body: [
+      "The system is structured for MT4/MT5-ready workflows, manual account assignment, trading statistics, payout review, KYC handling, notifications, and secure role-based access.",
+      "PipNest Markets is not just a website; it is a scalable prop firm platform foundation built for disciplined growth."
+    ]
+  }
+];
+
+export const challengeRulesSections: LegalSection[] = [
+  {
+    title: "Evaluation objective",
+    body: [
+      "Each challenge has a defined account size, fee, profit target, drawdown structure, leverage profile, minimum trading days, and phase count.",
+      "The trader's objective is to reach the required profit target while respecting all risk limits and platform rules throughout the evaluation."
+    ]
+  },
+  {
+    title: "Profit target",
+    body: [
+      "The profit target is the minimum percentage gain required to pass a challenge phase. Targets can differ by program and by phase.",
+      "A trader must reach the required target without breaching daily drawdown, maximum drawdown, prohibited trading, or account conduct rules."
+    ]
+  },
+  {
+    title: "Daily drawdown",
+    body: [
+      "Daily drawdown is the maximum loss permitted within a trading day according to the selected challenge rules.",
+      "If the daily loss limit is breached, the challenge may be failed even if the overall account remains above the maximum drawdown threshold."
+    ]
+  },
+  {
+    title: "Maximum drawdown",
+    body: [
+      "Maximum drawdown is the total loss limit allowed on the account. It protects the simulated capital allocation and keeps risk management measurable.",
+      "Traders should monitor equity, balance, open positions, and account status to avoid exceeding this limit."
+    ]
+  },
+  {
+    title: "Minimum trading days",
+    body: [
+      "Some challenges require a minimum number of trading days before the phase can be completed.",
+      "This rule encourages consistency and prevents a challenge from being passed through one short burst of unsustainable activity."
+    ]
+  },
+  {
+    title: "Account conduct",
+    body: [
+      "Traders are expected to trade independently, manage risk responsibly, and avoid abusive behavior including arbitrage abuse, latency exploitation, account sharing, or strategies designed to manipulate evaluation outcomes.",
+      "PipNest Markets may review account activity to confirm compliance before assigning or advancing an account."
+    ]
+  },
+  {
+    title: "Payout eligibility",
+    body: [
+      "Payout eligibility depends on account status, trading performance, verification, platform review, and compliance with the selected challenge rules.",
+      "The dashboard keeps payout steps and account status visible so traders understand what is required before requesting a payout."
+    ]
+  }
+];
+
 export const termsSections: LegalSection[] = [
   {
     title: "Preamble",
@@ -603,5 +686,26 @@ export const kycSections: LegalSection[] = [
     body: [
       "PipNest Markets reserves the right to amend or update this Responsible Trading Policy at any time. Continued use of our services constitutes acceptance of any future revisions."
     ]
+  }
+];
+
+export const accountDeletionSections: LegalSection[] = [
+  {
+    title: "How to request deletion",
+    body: [
+      "You can request deletion of your PipNest Markets account from inside the mobile app by opening Profile, then Account deletion, then Request account deletion.",
+      "You can also email contact@pipnestmarkets.com from the email address registered on your account with the subject Account deletion request."
+    ]
+  },
+  {
+    title: "What happens next",
+    body: [
+      "Our support team verifies the request, reviews any open orders, payouts, disputes, security flags, or legal obligations, and then processes eligible account and personal data deletion.",
+      "Some records may be retained where required for fraud prevention, security, accounting, dispute resolution, legal, or regulatory compliance."
+    ]
+  },
+  {
+    title: "Contact",
+    body: ["For deletion questions, contact PipNest Markets at contact@pipnestmarkets.com."]
   }
 ];

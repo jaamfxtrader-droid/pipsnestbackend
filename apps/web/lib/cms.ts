@@ -1,3 +1,16 @@
+import {
+  accountDeletionSections,
+  aboutSections,
+  challengeRulesSections,
+  disclaimerSections,
+  kycSections,
+  privacySections,
+  refundSections,
+  riskSections,
+  termsSections,
+  type LegalSection
+} from "@/lib/legal-content";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
 export type CmsSection = {
@@ -182,6 +195,39 @@ function section(sectionKey: string, label: string, eyebrow: string | null, titl
   };
 }
 
+function legalCmsSections(sections: LegalSection[]) {
+  return sections.map((item, index) => ({
+    sectionKey: `legal-${index + 1}`,
+    label: item.title,
+    eyebrow: null,
+    title: item.title,
+    content: item.body?.join("\n\n") ?? "",
+    sortOrder: index + 1,
+    sectionType: "block" as const,
+    published: true,
+    isVisible: true,
+    metadata: item.bullets?.length ? { bullets: item.bullets } : undefined
+  }));
+}
+
+const legalFallbackBySlug: Record<string, LegalSection[]> = {
+  about: aboutSections,
+  "challenge-details": challengeRulesSections,
+  terms: termsSections,
+  privacy: privacySections,
+  disclaimer: disclaimerSections,
+  "kyc-policy": kycSections,
+  "risk-disclosure": riskSections,
+  "refund-policy": refundSections,
+  "account-deletion": accountDeletionSections
+};
+
+function shouldUseLegalFallbackSections(slug: string, remoteSections: CmsSection[] = []) {
+  if (!legalFallbackBySlug[slug]) return false;
+  if (remoteSections.length === 0) return true;
+  return remoteSections.length === 1 && ["body", "legal-1"].includes(remoteSections[0]?.sectionKey ?? "") && legalFallbackBySlug[slug].length > 1;
+}
+
 export const cmsPageDrafts: CmsPage[] = [
   {
     slug: "home",
@@ -198,10 +244,7 @@ export const cmsPageDrafts: CmsPage[] = [
     content:
       "PipNest Markets is structured as a production-ready prop firm platform with clean separation between public marketing, trader workflows, admin operations, and future trading server integrations.",
     published: true,
-    sections: [
-      section("intro", "Intro", "About Us", "Built for disciplined traders and lean prop firm operations.", "PipNest Markets is structured as a production-ready prop firm platform with clean separation between public marketing, trader workflows, admin operations, and future trading server integrations.", 1),
-      section("features", "Feature Cards", null, "Transparent operations for traders and admins", "Transparent rules, admin controls, and integration-ready services can be shaped from the CMS.", 2)
-    ]
+    sections: legalCmsSections(aboutSections)
   },
   {
     slug: "funding-programs",
@@ -214,13 +257,10 @@ export const cmsPageDrafts: CmsPage[] = [
   },
   {
     slug: "challenge-details",
-    title: "Clear evaluation objectives with dashboard tracking.",
-    content: "Profit target, drawdown, minimum day, and account status rules remain visible throughout the trader journey.",
+    title: "Challenge Rules",
+    content: "Review the core evaluation rules, drawdown expectations, minimum trading day requirements, account conduct standards, and payout eligibility notes before starting a challenge.",
     published: true,
-    sections: [
-      section("intro", "Intro", "Challenge Details", "Clear evaluation objectives with dashboard tracking.", "Profit target, drawdown, minimum day, and account status rules remain visible throughout the trader journey.", 1),
-      section("rules", "Rules Table", null, "Rules traders can understand quickly", "Control the supporting rules section copy from the CMS while challenge values continue to come from platform data.", 2)
-    ]
+    sections: legalCmsSections(challengeRulesSections)
   },
   {
     slug: "how-it-works",
@@ -277,35 +317,57 @@ export const cmsPageDrafts: CmsPage[] = [
     title: "Terms & Conditions",
     content: "PipNest Markets provides simulated trading challenges and dashboard tooling. Final legal terms should be reviewed by counsel before production launch.",
     published: true,
-    sections: [
-      section("body", "Body", "Legal", "Terms & Conditions", "PipNest Markets provides simulated trading challenges and dashboard tooling. Final legal terms should be reviewed by counsel before production launch.", 1)
-    ]
+    sections: legalCmsSections(termsSections)
   },
   {
     slug: "privacy",
     title: "Privacy Policy",
-    content: "The platform stores account, order, support, notification, and affiliate data in PostgreSQL through Prisma. Secrets must remain server-side and environment-based.",
+    content: "This Privacy Policy explains how PipNest Markets collects, uses, stores, shares, and protects personal information when users access the website and services.",
     published: true,
-    sections: [
-      section("body", "Body", "Legal", "Privacy Policy", "The platform stores account, order, support, notification, and affiliate data in PostgreSQL through Prisma. Secrets must remain server-side and environment-based.", 1)
-    ]
+    sections: legalCmsSections(privacySections)
   },
   {
     slug: "risk-disclosure",
     title: "Risk Disclosure",
-    content: "Trading involves risk. PipNest Markets challenge screens use simulated accounts and MT4/MT5-ready statistics while live Manager API integration is configured.",
+    content: "Trading financial markets involves substantial risk. PipNest Markets accounts operate in a simulated environment for educational and evaluation purposes.",
     published: true,
-    sections: [
-      section("body", "Body", "Legal", "Risk Disclosure", "Trading involves risk. PipNest Markets challenge screens use simulated accounts and MT4/MT5-ready statistics while live Manager API integration is configured.", 1)
-    ]
+    sections: legalCmsSections(riskSections)
   },
   {
     slug: "refund-policy",
     title: "Refund Policy",
-    content: "Refund rules should be configured according to business policy. The schema includes order and payment statuses needed to track paid, failed, cancelled, and refunded states.",
+    content: "This policy explains how challenge fees, duplicate payments, account violations, funded accounts, and exceptional refund requests are handled.",
+    published: true,
+    sections: legalCmsSections(refundSections)
+  },
+  {
+    slug: "disclaimer",
+    title: "Disclaimer",
+    content: "This disclaimer explains the simulated trading setup, service-fee structure, absence of investment services, and general risk warnings for PipNest Markets programs.",
+    published: true,
+    sections: legalCmsSections(disclaimerSections)
+  },
+  {
+    slug: "kyc-policy",
+    title: "Risk Disclosure, AML/KYC Policy, Responsible Trading Policy",
+    content: "This policy explains identity verification, AML controls, responsible trading expectations, trader responsibilities, and company review rights.",
+    published: true,
+    sections: legalCmsSections(kycSections)
+  },
+  {
+    slug: "account-deletion",
+    title: "Account Deletion",
+    content: "How PipNest Markets users can request deletion of their account and associated personal data.",
+    published: true,
+    sections: legalCmsSections(accountDeletionSections)
+  },
+  {
+    slug: "layout-rules",
+    title: "Layout Rules",
+    content: "Use this page to publish platform layout rules, trading notes, and customer-facing operational guidance.",
     published: true,
     sections: [
-      section("body", "Body", "Legal", "Refund Policy", "Refund rules should be configured according to business policy. The schema includes order and payment statuses needed to track paid, failed, cancelled, and refunded states.", 1)
+      section("body", "Body", "Rules", "Layout Rules", "Use this page to publish platform layout rules, trading notes, and customer-facing operational guidance.", 1)
     ]
   }
 ];
@@ -327,6 +389,13 @@ export function mergeCmsPage(
 ) {
   if (!defaultPage) return remotePage ? { ...remotePage, sections: sortSections(remotePage.sections) } : remotePage;
   if (!remotePage) return defaultPage;
+  if (options.mergeDefaultSections === false && shouldUseLegalFallbackSections(remotePage.slug, remotePage.sections)) {
+    return {
+      ...defaultPage,
+      ...remotePage,
+      sections: legalCmsSections(legalFallbackBySlug[remotePage.slug])
+    };
+  }
   return {
     ...defaultPage,
     ...remotePage,
@@ -350,11 +419,11 @@ export async function getCmsPage(slug: string): Promise<CmsPage | undefined> {
       cache: "no-store"
     });
 
-    if (!response.ok) return slug === "home" ? fallback : undefined;
+    if (!response.ok) return fallback;
     const payload = (await response.json()) as ApiPayload<CmsPageResponse>;
     return mergeCmsPage(fallback, payload.data.page, { mergeDefaultSections: slug === "home" });
   } catch {
-    return slug === "home" ? fallback : undefined;
+    return fallback;
   }
 }
 

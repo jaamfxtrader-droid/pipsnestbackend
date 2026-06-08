@@ -1,4 +1,6 @@
-import { CmsPageView } from "@/components/cms/cms-page-view";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
+import { challengeRulesSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -8,6 +10,14 @@ export const metadata = pageMetadata({
   keywords: ["challenge rules", "drawdown rules", "profit target"]
 });
 
-export default function ChallengeDetailsPage() {
-  return <CmsPageView slug="challenge-details" fallbackTitle="Challenge Details" />;
+export default async function ChallengeDetailsPage() {
+  const page = await getCmsPage("challenge-details");
+  return (
+    <LegalPage
+      title={page?.title ?? "Challenge Rules"}
+      eyebrow="Rules"
+      summary={page?.content ?? "Review the core evaluation rules, drawdown expectations, minimum trading day requirements, account conduct standards, and payout eligibility notes before starting a challenge."}
+      sections={cmsLegalSections(page, challengeRulesSections)}
+    />
+  );
 }

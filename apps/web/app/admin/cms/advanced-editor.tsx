@@ -42,10 +42,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { CmsSectionRenderer } from "@/components/cms/cms-section-renderer";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { getStoredAuthToken } from "@/store/auth-store";
 import { cmsPageDrafts, mergeCmsPage, type CmsPage, type CmsSection } from "@/lib/cms";
+import {
+  accountDeletionSections,
+  aboutSections,
+  challengeRulesSections,
+  disclaimerSections,
+  kycSections,
+  privacySections,
+  refundSections,
+  riskSections,
+  termsSections,
+  type LegalSection
+} from "@/lib/legal-content";
 
 type EditorTab = "content" | "seo" | "styling" | "preview";
 type SectionType = "block" | "grid" | "flex" | "carousel" | "media" | "split";
@@ -87,14 +101,26 @@ const fixedPageNames: Record<string, string> = {
   "kyc-policy": "KYC Policy Page",
   "refund-policy": "Refund Policy",
   "risk-disclosure": "Risk Disclosure",
+  "account-deletion": "Account Deletion",
   affiliate: "Affiliate Rules Page",
-  "layout-rules": "Layout Rules Page",
   "challenge-details": "Rules",
   "funding-programs": "Funding",
   faq: "FAQ"
 };
 
 const editableSlugs = Object.keys(fixedPageNames);
+
+const legalPreviewConfig: Record<string, { eyebrow?: string; fallback: LegalSection[] }> = {
+  about: { eyebrow: "About", fallback: aboutSections },
+  "challenge-details": { eyebrow: "Rules", fallback: challengeRulesSections },
+  terms: { eyebrow: "Legal", fallback: termsSections },
+  privacy: { eyebrow: "Privacy", fallback: privacySections },
+  disclaimer: { eyebrow: "Disclosure", fallback: disclaimerSections },
+  "kyc-policy": { eyebrow: "Compliance", fallback: kycSections },
+  "risk-disclosure": { eyebrow: "Risk", fallback: riskSections },
+  "refund-policy": { eyebrow: "Payments", fallback: refundSections },
+  "account-deletion": { fallback: accountDeletionSections }
+};
 
 function pageDisplayName(page: CmsPage) {
   return fixedPageNames[page.slug] ?? page.metadata?.navLabel ?? page.title ?? page.slug;
@@ -305,6 +331,132 @@ function CmsEditorSkeleton() {
   );
 }
 
+function LiveCmsPagePreview({
+  page,
+  selectedIndex,
+  onSelectSection
+}: {
+  page: CmsPage;
+  selectedIndex: number;
+  onSelectSection: (index: number) => void;
+}) {
+  const sections = page.sections ?? [];
+  const legalConfig = legalPreviewConfig[page.slug];
+
+  if (!sections.length) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-950">
+        <h3 className="text-xl font-black text-slate-950 dark:text-white">No sections on this page</h3>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Add a section, then edit it in the same live preview flow.</p>
+      </div>
+    );
+  }
+
+  if (legalConfig) {
+    return (
+      <div className="bg-[#061126] text-white">
+        <LegalPage
+          title={page.title}
+          eyebrow={legalConfig.eyebrow}
+          summary={page.content}
+          sections={cmsLegalSections(page, legalConfig.fallback)}
+          selectedSectionIndex={selectedIndex}
+          onSectionSelect={onSelectSection}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white text-slate-950 dark:bg-slate-950 dark:text-white">
+      {sections.map((section, index) => {
+        const selected = selectedIndex === index;
+        const hidden = section.published === false || section.isVisible === false;
+
+        return (
+          <div
+            key={section.sectionKey || index}
+            className={cn(
+              "group relative border-2 transition",
+              selected ? "border-primary" : "border-transparent hover:border-primary/40",
+              hidden && "opacity-60"
+            )}
+          >
+            <div className="pointer-events-none">
+              <CmsSectionRenderer section={{ ...section, published: true, isVisible: true }} />
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectSection(index)}
+              className={cn(
+                "absolute left-3 top-3 z-20 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-md px-3 py-2 text-xs font-black shadow-lg transition",
+                selected ? "bg-primary text-white" : "bg-slate-950/85 text-white opacity-90 group-hover:opacity-100"
+              )}
+            >
+              <span className="rounded bg-white/20 px-1.5 py-0.5">{index + 1}</span>
+              <span className="truncate">{section.label || section.title || "Section"}</span>
+              {hidden ? <span className="rounded bg-amber-300 px-1.5 py-0.5 text-[10px] text-slate-950">Hidden/Draft</span> : null}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function legalPageFromLiveContent(page: CmsPage) {
+  const config = legalPreviewConfig[page.slug];
+  if (!config) return page;
+
+  return {
+    ...page,
+    sections: config.fallback.map((section, index) => ({
+      sectionKey: `legal-${index + 1}`,
+      label: section.title,
+      eyebrow: null,
+      title: section.title,
+      content: section.body?.join("\n\n") ?? "",
+      sortOrder: index + 1,
+      sectionType: "block" as SectionType,
+      published: true,
+      isVisible: true,
+      metadata: section.bullets?.length ? { bullets: section.bullets } : undefined
+    }))
+  };
+}
+
+function cleanCmsPageForSave(page: CmsPage) {
+  return {
+    slug: page.slug,
+    title: page.title,
+    content: page.content ?? "",
+    metaTitle: page.metaTitle ?? undefined,
+    metaDescription: page.metaDescription ?? undefined,
+    published: page.published ?? true,
+    metadata: page.metadata ?? {},
+    sections: (page.sections ?? [])
+      .filter((section) => section.sectionKey !== "__page_settings")
+      .map((section, index) => ({
+        sectionKey: section.sectionKey || `section-${index + 1}`,
+        label: section.label || section.title || `Section ${index + 1}`,
+        eyebrow: section.eyebrow ?? undefined,
+        title: section.title || section.label || `Section ${index + 1}`,
+        content: section.content ?? "",
+        ctaLabel: section.ctaLabel ?? undefined,
+        ctaHref: section.ctaHref ?? undefined,
+        sortOrder: index + 1,
+        sectionType: section.sectionType ?? "block",
+        imageUrl: section.imageUrl ?? undefined,
+        iconName: section.iconName ?? undefined,
+        colorScheme: section.colorScheme ?? undefined,
+        position: section.position ?? 0,
+        metadata: section.metadata ?? undefined,
+        isVisible: section.isVisible ?? true,
+        published: section.published ?? true
+      }))
+  };
+}
+
 export default function AdvancedCmsEditor() {
   const pushToast = useToast((state) => state.push);
   const [pages, setPages] = useState<CmsPage[]>([]);
@@ -369,7 +521,8 @@ export default function AdvancedCmsEditor() {
             ...(page.metadata ?? {})
           }
         }));
-      const customPages = data.pages.filter((page) => page.slug !== "site-settings" && !editableSlugs.includes(page.slug));
+      const hiddenCmsSlugs = new Set(["site-settings", "layout-rules"]);
+      const customPages = data.pages.filter((page) => !hiddenCmsSlugs.has(page.slug) && !editableSlugs.includes(page.slug));
       const editablePages = [...fixedPages, ...customPages];
       setPages(editablePages);
       if (editablePages.length > 0) {
@@ -728,6 +881,18 @@ export default function AdvancedCmsEditor() {
     });
   }
 
+  function syncLegalPageFromLiveContent() {
+    if (!draft || !legalPreviewConfig[draft.slug]) return;
+    const syncedPage = legalPageFromLiveContent(draft);
+    setDraft(syncedPage);
+    setSelectedSectionIndex(0);
+    pushToast({
+      title: "Live content synced",
+      message: "Review the sections, then save to update the CMS database.",
+      tone: "success"
+    });
+  }
+
   async function savePage() {
     if (!draft || !token) return;
 
@@ -736,16 +901,7 @@ export default function AdvancedCmsEditor() {
       const data = await apiFetch<{ page: CmsPage }>("/admin/cms", {
         method: "POST",
         token,
-        body: JSON.stringify({
-          slug: draft.slug,
-          title: draft.title,
-          content: draft.content,
-          metaTitle: draft.metaTitle,
-          metaDescription: draft.metaDescription,
-          published: draft.published ?? true,
-          metadata: draft.metadata,
-          sections: draft.sections ?? []
-        })
+        body: JSON.stringify(cleanCmsPageForSave(draft))
       });
 
       setSelectedPage(data.page);
@@ -1058,6 +1214,12 @@ export default function AdvancedCmsEditor() {
                       <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
                         Ready to publish
                       </span>
+                    ) : null}
+                    {draft && legalPreviewConfig[draft.slug] ? (
+                      <Button type="button" variant="secondary" className="h-8 rounded-md px-2 text-xs" onClick={syncLegalPageFromLiveContent}>
+                        <Copy className="h-3.5 w-3.5" />
+                        Sync live content
+                      </Button>
                     ) : null}
                   </div>
                 </div>
@@ -1843,51 +2005,9 @@ export default function AdvancedCmsEditor() {
                         }}
                         className="mx-auto overflow-hidden rounded-lg border-4 border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
                       >
-                        <div className="h-full overflow-y-auto p-4 sm:p-8">
-                          {currentSection.eyebrow && (
-                            <p className="text-sm font-semibold text-primary dark:text-blue-400 mb-2 uppercase">
-                              {currentSection.eyebrow}
-                            </p>
-                          )}
-
-                          {currentSection.metadata?.badges && (currentSection.metadata.badges as any[]).length > 0 && (
-                            <div className="flex gap-2 mb-4 flex-wrap">
-                              {(currentSection.metadata.badges as any[]).map((badge) => (
-                                <div
-                                  key={badge.id}
-                                  className="inline-flex items-center gap-1 bg-primary/10 text-primary dark:bg-primary/20 dark:text-blue-300 px-3 py-1 rounded text-sm"
-                                >
-                                  {badge.icon && <span>{badge.icon}</span>}
-                                  <span>{badge.text}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                            {currentSection.title}
-                          </h2>
-                          {currentSection.imageUrl ? (
-                            <img src={currentSection.imageUrl} alt="" className="mb-6 max-h-72 w-full rounded-lg object-cover" />
-                          ) : null}
-                          {currentSection.metadata?.videoUrl ? (
-                            <video src={currentSection.metadata.videoUrl} className="mb-6 max-h-72 w-full rounded-lg bg-slate-950" controls />
-                          ) : null}
-                          <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 whitespace-pre-wrap">
-                            {currentSection.content}
-                          </p>
-                          {currentSection.ctaLabel && (
-                            <button className={cn(
-                              "inline-flex items-center gap-2 px-6 py-2 rounded-md font-semibold",
-                              currentSection.metadata?.ctaStyle?.includes("outline")
-                                ? "border border-primary text-primary"
-                                : "bg-primary text-white hover:bg-primary/90"
-                            )}>
-                              {currentSection.metadata?.ctaStyle?.includes("icon") ? <ExternalLink className="h-4 w-4" /> : null}
-                              {currentSection.ctaLabel}
-                            </button>
-                          )}
-                        </div>
+                        {draft ? (
+                          <LiveCmsPagePreview page={draft} selectedIndex={selectedSectionIndex} onSelectSection={setSelectedSectionIndex} />
+                        ) : null}
                       </div>
                     </div>
                   </div>

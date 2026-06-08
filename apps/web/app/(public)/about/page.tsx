@@ -1,4 +1,6 @@
-import { CmsPageView } from "@/components/cms/cms-page-view";
+import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { getCmsPage } from "@/lib/cms";
+import { aboutSections } from "@/lib/legal-content";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -8,6 +10,14 @@ export const metadata = pageMetadata({
   keywords: ["about PipNest Markets", "funded trader platform", "simulated prop trading"]
 });
 
-export default function AboutPage() {
-  return <CmsPageView slug="about" fallbackTitle="About PipNest Markets" />;
+export default async function AboutPage() {
+  const page = await getCmsPage("about");
+  return (
+    <LegalPage
+      title={page?.title ?? "About PipNest Markets"}
+      eyebrow="About"
+      summary={page?.content ?? "Discover PipNest Markets, a modern funded trader evaluation platform with simulated trading accounts, MT4/MT5-ready operations, and trader-focused tools."}
+      sections={cmsLegalSections(page, aboutSections)}
+    />
+  );
 }
