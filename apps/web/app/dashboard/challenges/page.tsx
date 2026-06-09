@@ -103,11 +103,10 @@ type CryptoCheckout = {
 const terminalOrderStatuses = ["CANCELLED", "FAILED", "REFUNDED"];
 const terminalAccountStatuses = ["FAILED", "SUSPENDED"];
 
-type RankPhase = "zero" | "one" | "two";
+type RankPhase = "one" | "two";
 type RankView = "cards" | "phases";
 
 const rankPhases: Array<{ key: RankPhase; label: string; title: string }> = [
-  { key: "zero", label: "Zero", title: "Instant funded" },
   { key: "one", label: "1 Step", title: "Single evaluation" },
   { key: "two", label: "2 Step", title: "Two phase route" }
 ];
@@ -135,19 +134,16 @@ function statusTone(status: string): "primary" | "profit" | "warning" | "loss" |
 
 function programPhase(program: Challenge): RankPhase {
   const count = Number(program.phaseCount ?? 2);
-  if (count <= 0) return "zero";
   if (count === 1) return "one";
   return "two";
 }
 
 function phaseTarget(program: Challenge, phase: RankPhase, index: 1 | 2) {
-  if (phase === "zero") return "-";
   if (phase === "one") return index === 1 ? `${program.profitTargetPercent}%` : "-";
   return index === 1 ? `${program.profitTargetPercent}%` : `${Math.max(program.profitTargetPercent - 3, 5)}%`;
 }
 
 function phaseStepsFor(phase: RankPhase) {
-  if (phase === "zero") return ["Funded"];
   if (phase === "one") return ["Evaluation", "Master"];
   return ["Phase 1", "Phase 2", "Master"];
 }
@@ -579,7 +575,7 @@ export default function MyChallengesPage() {
                             </span>
                             <span className="flex justify-between gap-3">
                               <span className={featured ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}>Master</span>
-                              <strong>{phase === "zero" ? "Live" : "-"}</strong>
+                              <strong>-</strong>
                             </span>
                           </div>
                           <span className="flex justify-between text-sm">
@@ -659,7 +655,7 @@ export default function MyChallengesPage() {
                         <Crown className="h-7 w-7 text-warning" />
                       </div>
                       <div className="mt-10 grid gap-8 text-lg font-semibold">
-                        <span>{phase === "zero" ? "Live" : "-"}</span>
+                        <span>-</span>
                         <span>{selectedProgram.maxDrawdownPercent}%</span>
                         <span>{selectedProgram.dailyDrawdownPercent}%</span>
                       </div>

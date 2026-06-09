@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, BarChart3, CheckCircle2, ChevronDown, Crown, DollarSign, Info, Repeat, ShieldCheck, Target } from "lucide-react";
+import { ArrowRight, BarChart3, CheckCircle2, ChevronDown, DollarSign, Info, Repeat, ShieldCheck, Target } from "lucide-react";
 import { AuthAwareLink } from "@/components/auth/auth-aware-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { cn, currency } from "@/lib/utils";
 
-type RankPhase = "zero" | "one" | "two";
+type RankPhase = "one" | "two";
 
 type RankProgram = {
   id: string;
@@ -20,7 +20,7 @@ type RankProgram = {
   maxDrawdownPercent: number;
   minTradingDays: number;
   leverage: string;
-  phaseCount: 0 | 1 | 2;
+  phaseCount: 1 | 2;
   featured?: boolean;
 };
 
@@ -38,8 +38,7 @@ type ApiChallenge = {
   sortOrder?: number | string | null;
 };
 
-const rankPhases: Array<{ key: RankPhase; label: string; count: 0 | 1 | 2; title: string }> = [
-  { key: "zero", label: "Zero", count: 0, title: "Instant funded" },
+const rankPhases: Array<{ key: RankPhase; label: string; count: 1 | 2; title: string }> = [
   { key: "one", label: "1 Step", count: 1, title: "Single evaluation" },
   { key: "two", label: "2 Step", count: 2, title: "Two phase route" }
 ];
@@ -60,7 +59,7 @@ const rewardProfile = {
 };
 
 function normalizeRankChallenge(challenge: ApiChallenge): RankProgram {
-  const phaseCount = Math.min(Math.max(Number(challenge.phaseCount ?? 2), 0), 2) as 0 | 1 | 2;
+  const phaseCount = Number(challenge.phaseCount ?? 2) === 1 ? 1 : 2;
   const accountSize = Number(challenge.accountSize);
 
   return {
@@ -85,7 +84,6 @@ function formatConvertedPrice(value: number, currencyOption: (typeof rankCurrenc
 }
 
 function phaseTarget(program: RankProgram, phase: RankPhase, index: 1 | 2) {
-  if (phase === "zero") return "-";
   if (phase === "one") return index === 1 ? `${program.profitTargetPercent}%` : "-";
   return index === 1 ? `${program.profitTargetPercent}%` : `${Math.max(program.profitTargetPercent - 3, 5)}%`;
 }
@@ -214,7 +212,7 @@ function ChallengeProgramCard({
           </span>
           <span className="flex justify-between gap-3">
             <span className={featured ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}>Master</span>
-            <strong>{phase === "zero" ? "Live" : "-"}</strong>
+            <strong>-</strong>
           </span>
         </div>
         <span className="flex justify-between text-sm">
@@ -297,7 +295,7 @@ export function ChallengeProgramGrid() {
                   : "border-slate-200 bg-white text-slate-700 hover:border-primary/40 hover:text-primary dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
               )}
             >
-              {item.key === "two" ? <Repeat className="h-4 w-4" /> : item.key === "one" ? <Target className="h-4 w-4" /> : <Crown className="h-4 w-4" />}
+              {item.key === "two" ? <Repeat className="h-4 w-4" /> : <Target className="h-4 w-4" />}
               {item.label}
             </button>
           ))}

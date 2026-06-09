@@ -12,7 +12,7 @@ challengeRouter.get(
   "/",
   asyncHandler(async (_req, res) => {
     const challenges = await prisma.challenge.findMany({
-      where: { isActive: true },
+      where: { isActive: true, phaseCount: { in: [1, 2] } },
       orderBy: [{ sortOrder: "asc" }, { accountSize: "asc" }]
     });
     sendSuccess(res, { challenges });

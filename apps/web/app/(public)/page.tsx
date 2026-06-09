@@ -470,7 +470,7 @@ function ProgramMiniCard({ program, featured = false }: { program: (typeof fundi
   );
 }
 
-type RankPhase = "zero" | "one" | "two";
+type RankPhase = "one" | "two";
 type RankView = "cards" | "phases";
 
 type RankProgram = {
@@ -483,7 +483,7 @@ type RankProgram = {
   maxDrawdownPercent: number;
   minTradingDays: number;
   leverage: string;
-  phaseCount: 0 | 1 | 2;
+  phaseCount: 1 | 2;
   featured?: boolean;
 };
 
@@ -501,8 +501,7 @@ type ApiChallenge = {
   sortOrder?: number | string | null;
 };
 
-const rankPhases: Array<{ key: RankPhase; label: string; count: 0 | 1 | 2; title: string }> = [
-  { key: "zero", label: "Zero", count: 0, title: "Instant funded" },
+const rankPhases: Array<{ key: RankPhase; label: string; count: 1 | 2; title: string }> = [
   { key: "one", label: "1 Step", count: 1, title: "Single evaluation" },
   { key: "two", label: "2 Step", count: 2, title: "Two phase route" }
 ];
@@ -522,33 +521,8 @@ const rewardProfile = {
   cycle: "Biweekly"
 };
 
-const rankTierSeeds = [
-  { accountSize: 5000, prices: { zero: 28, one: 32, two: 36 } },
-  { accountSize: 10000, prices: { zero: 52, one: 59, two: 66 } },
-  { accountSize: 25000, prices: { zero: 124, one: 139, two: 156 } },
-  { accountSize: 50000, prices: { zero: 229, one: 259, two: 289 }, featured: true },
-  { accountSize: 100000, prices: { zero: 419, one: 479, two: 529 } },
-  { accountSize: 200000, prices: { zero: 789, one: 889, two: 989 } }
-];
-
-const rankFallbackPrograms: RankProgram[] = rankPhases.flatMap((phase) =>
-  rankTierSeeds.map((tier) => ({
-    id: `${phase.key}-${tier.accountSize}`,
-    name: `${phase.label} ${currency(tier.accountSize)}`,
-    accountSize: tier.accountSize,
-    price: tier.prices[phase.key],
-    profitTargetPercent: phase.key === "zero" ? 0 : phase.key === "one" ? 9 : 8,
-    dailyDrawdownPercent: phase.key === "zero" ? 4 : 5,
-    maxDrawdownPercent: phase.key === "zero" ? 8 : 10,
-    minTradingDays: phase.key === "zero" ? 0 : 5,
-    leverage: phase.key === "zero" ? "1:50" : "1:100",
-    phaseCount: phase.count,
-    featured: tier.featured
-  }))
-);
-
 function normalizeRankChallenge(challenge: ApiChallenge): RankProgram {
-  const phaseCount = Math.min(Math.max(Number(challenge.phaseCount ?? 2), 0), 2) as 0 | 1 | 2;
+  const phaseCount = Number(challenge.phaseCount ?? 2) === 1 ? 1 : 2;
   const accountSize = Number(challenge.accountSize);
 
   return {
@@ -573,19 +547,13 @@ function formatConvertedPrice(value: number, currencyOption: (typeof rankCurrenc
 }
 
 function phaseTarget(program: RankProgram, phase: RankPhase, index: 1 | 2) {
-  if (phase === "zero") return index === 1 ? "-" : "-";
   if (phase === "one") return index === 1 ? `${program.profitTargetPercent}%` : "-";
   return index === 1 ? `${program.profitTargetPercent}%` : `${Math.max(program.profitTargetPercent - 3, 5)}%`;
 }
 
 function displayProgramsForPhase(programs: RankProgram[], phase: RankPhase) {
   const phaseCount = rankPhases.find((item) => item.key === phase)?.count ?? 2;
-  const directPrograms = programs.filter((program) => program.phaseCount === phaseCount);
-  const fallbackPrograms = rankFallbackPrograms.filter((program) => program.phaseCount === phaseCount);
-  const seenSizes = new Set(directPrograms.map((program) => program.accountSize));
-  const merged = [...directPrograms, ...fallbackPrograms.filter((program) => !seenSizes.has(program.accountSize))];
-
-  return merged.sort((left, right) => left.accountSize - right.accountSize).slice(0, 6);
+  return programs.filter((program) => program.phaseCount === phaseCount).sort((left, right) => left.accountSize - right.accountSize);
 }
 
 function CurrencyPicker({
@@ -724,7 +692,7 @@ function RankProgramCard({
           </span>
           <span className="flex justify-between gap-3">
             <span className={featured ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}>Master</span>
-            <strong>{phase === "zero" ? "Live" : "-"}</strong>
+            <strong>-</strong>
           </span>
         </div>
         <span className="flex justify-between text-sm">
@@ -758,7 +726,7 @@ function RankPhaseBoard({
   currencyOption: (typeof rankCurrencies)[number];
 }) {
   const adjustedPrice = program.price * rewardProfile.priceMultiplier;
-  const phaseSteps = phase === "zero" ? ["Funded"] : phase === "one" ? ["Evaluation", "Master"] : ["Phase 1", "Phase 2", "Master"];
+  const phaseSteps = phase === "one" ? ["Evaluation", "Master"] : ["Phase 1", "Phase 2", "Master"];
 
   return (
     <div className="mt-10 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-white/[0.04]">
@@ -776,11 +744,11 @@ function RankPhaseBoard({
               <div key={step} className="relative grid justify-items-center gap-4">
                 {index > 0 ? <span className="absolute right-1/2 top-9 h-[2px] w-full bg-slate-200 dark:bg-white/10" /> : null}
                 <span className="relative z-10 grid h-16 w-16 place-items-center rounded-full bg-slate-200 text-xl font-semibold text-[#061126] dark:bg-white/10 dark:text-white">
-                  {step === "Master" || step === "Funded" ? <Crown className="h-6 w-6 text-warning" /> : index + 1}
+                  {step === "Master" ? <Crown className="h-6 w-6 text-warning" /> : index + 1}
                 </span>
                 <h3 className="text-xl font-semibold text-[#061126] dark:text-white">{step}</h3>
                 <div className="grid gap-8 text-center text-lg font-semibold text-[#061126] dark:text-white">
-                  <span>{step === "Phase 2" ? phaseTarget(program, phase, 2) : step === "Master" || step === "Funded" ? "-" : phaseTarget(program, phase, 1)}</span>
+                  <span>{step === "Phase 2" ? phaseTarget(program, phase, 2) : step === "Master" ? "-" : phaseTarget(program, phase, 1)}</span>
                   <span>{program.maxDrawdownPercent}%</span>
                   <span>{program.dailyDrawdownPercent}%</span>
                 </div>
@@ -795,7 +763,7 @@ function RankPhaseBoard({
             <Crown className="h-7 w-7 text-warning" />
           </div>
           <div className="mt-10 grid gap-8 text-lg font-semibold">
-            <span>{phase === "zero" ? "Live" : "-"}</span>
+            <span>-</span>
             <span>{program.maxDrawdownPercent}%</span>
             <span>{program.dailyDrawdownPercent}%</span>
           </div>
@@ -842,7 +810,7 @@ function RankUpShowcase({ section, programs }: { section?: CmsSection; programs:
   const carouselPrograms = visiblePrograms.slice(cardStart, cardStart + 4);
   const [selectedProgramId, setSelectedProgramId] = useState<string>(visiblePrograms[3]?.id ?? visiblePrograms[0]?.id ?? "two-50000");
   const currencyOption = rankCurrencies.find((item) => item.code === currencyCode) ?? rankCurrencies[0];
-  const selectedProgram = visiblePrograms.find((program) => program.id === selectedProgramId) ?? visiblePrograms[0] ?? rankFallbackPrograms[0];
+  const selectedProgram = visiblePrograms.find((program) => program.id === selectedProgramId) ?? visiblePrograms[0];
 
   useEffect(() => {
     setCardStart(0);
@@ -865,7 +833,7 @@ function RankUpShowcase({ section, programs }: { section?: CmsSection; programs:
           <p className="text-sm font-semibold text-primary">{section?.eyebrow ?? t("rank.label")}</p>
           <h2 className="mt-3 text-4xl font-semibold text-[#061126] dark:text-white">{section?.title ?? "Buckle Up, Your Journey Starts Here!"}</h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            {section?.content ?? "Choose Zero, 1 Step, or 2 Step routes, then compare live pricing from the challenge data."}
+            {section?.content ?? "Choose 1 Step or 2 Step routes, then compare live pricing from the challenge data."}
           </p>
         </div>
 
@@ -908,7 +876,7 @@ function RankUpShowcase({ section, programs }: { section?: CmsSection; programs:
                 key={program.id}
                 type="button"
                 onClick={() => setSelectedProgramId(program.id)}
-                className={cn("rounded-md px-4 py-2 text-sm font-semibold transition", selectedProgram.id === program.id ? "bg-[#082f73] text-white shadow-sm" : "bg-white text-slate-500 hover:text-primary dark:bg-white/[0.06] dark:text-slate-300")}
+                className={cn("rounded-md px-4 py-2 text-sm font-semibold transition", selectedProgram?.id === program.id ? "bg-[#082f73] text-white shadow-sm" : "bg-white text-slate-500 hover:text-primary dark:bg-white/[0.06] dark:text-slate-300")}
               >
                 {currency(program.accountSize)}
               </button>
@@ -920,7 +888,7 @@ function RankUpShowcase({ section, programs }: { section?: CmsSection; programs:
           <div className="mt-12">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                Showing {cardStart + 1}-{Math.min(cardStart + 4, visiblePrograms.length)} of {visiblePrograms.length}
+                Showing {visiblePrograms.length ? cardStart + 1 : 0}-{Math.min(cardStart + 4, visiblePrograms.length)} of {visiblePrograms.length}
               </div>
               <div className="inline-flex gap-2">
                 <button
@@ -950,14 +918,23 @@ function RankUpShowcase({ section, programs }: { section?: CmsSection; programs:
                   program={program}
                   phase={phase}
                   currencyOption={currencyOption}
-                  featured={selectedProgram.id === program.id}
+                  featured={selectedProgram?.id === program.id}
                   onSelect={() => setSelectedProgramId(program.id)}
                 />
               ))}
             </div>
+            {!visiblePrograms.length ? (
+              <div className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
+                No active admin challenges are available for this route yet.
+              </div>
+            ) : null}
           </div>
-        ) : (
+        ) : selectedProgram ? (
           <RankPhaseBoard program={selectedProgram} phase={phase} currencyOption={currencyOption} />
+        ) : (
+          <div className="mt-8 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
+            No active admin challenges are available for this route yet.
+          </div>
         )}
 
         <div className="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 md:grid-cols-3">
@@ -1549,7 +1526,7 @@ function PhoneMockup() {
 export default function HomePage() {
   const { t } = useTranslation();
   const [homePage, setHomePage] = useState<CmsPage | undefined>(() => getDefaultCmsPage("home"));
-  const [rankPrograms, setRankPrograms] = useState<RankProgram[]>(rankFallbackPrograms);
+  const [rankPrograms, setRankPrograms] = useState<RankProgram[]>([]);
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics>(homeMetricsFallback);
   const [androidAppUrl, setAndroidAppUrl] = useState(defaultSiteSettings.androidAppUrl);
 
@@ -1602,7 +1579,7 @@ export default function HomePage() {
         setRankPrograms(data.challenges.map(normalizeRankChallenge));
       })
       .catch(() => {
-        if (mounted) setRankPrograms(rankFallbackPrograms);
+        if (mounted) setRankPrograms([]);
       });
 
     return () => {
