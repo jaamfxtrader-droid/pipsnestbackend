@@ -1,4 +1,5 @@
-import { CmsPageView } from "@/components/cms/cms-page-view";
+import { PayoutsMarketingPage } from "@/components/marketing/payouts-marketing-page";
+import { getCmsPage, getCmsSection } from "@/lib/cms";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -8,6 +9,10 @@ export const metadata = pageMetadata({
   keywords: ["funded trader payouts", "profit split", "payout tracking"]
 });
 
-export default function PayoutsPage() {
-  return <CmsPageView slug="payouts" fallbackTitle="Payouts" />;
+export default async function PayoutsPage() {
+  const page = await getCmsPage("payouts");
+  const intro = getCmsSection(page, "intro");
+  const workflow = getCmsSection(page, "workflow");
+
+  return <PayoutsMarketingPage page={page} intro={intro} workflowSection={workflow} />;
 }

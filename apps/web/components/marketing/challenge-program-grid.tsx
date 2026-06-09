@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, BarChart3, CheckCircle2, ChevronDown, DollarSign, Info, Repeat, ShieldCheck, Target } from "lucide-react";
+import { ArrowRight, BarChart3, CheckCircle2, ChevronDown, DollarSign, Info, Repeat, ShieldCheck, Target, Trophy } from "lucide-react";
 import { AuthAwareLink } from "@/components/auth/auth-aware-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import type { FundingFeatureItem, FundingIconName } from "@/lib/funding-page-content";
 import { cn, currency } from "@/lib/utils";
 
 type RankPhase = "one" | "two";
@@ -56,6 +57,16 @@ const rewardProfile = {
   priceMultiplier: 1,
   splitPercent: 80,
   cycle: "Biweekly"
+};
+
+const fundingIconMap: Record<FundingIconName, typeof Trophy> = {
+  Trophy,
+  BadgeDollarSign: DollarSign,
+  BarChart3,
+  ShieldCheck,
+  CheckCircle2,
+  Target,
+  DollarSign
 };
 
 function normalizeRankChallenge(challenge: ApiChallenge): RankProgram {
@@ -250,7 +261,7 @@ function ChallengeCardSkeleton() {
   );
 }
 
-export function ChallengeProgramGrid() {
+export function ChallengeProgramGrid({ featureItems }: { featureItems?: FundingFeatureItem[] }) {
   const [programs, setPrograms] = useState<RankProgram[]>([]);
   const [phase, setPhase] = useState<RankPhase>("two");
   const [currencyCode, setCurrencyCode] = useState<(typeof rankCurrencies)[number]["code"]>("USD");
@@ -334,18 +345,21 @@ export function ChallengeProgramGrid() {
       ) : null}
 
       <div className="mt-8 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-3">
-        {[
-          ["Clear evaluation rules", ShieldCheck],
-          ["MT4/MT5-ready workflow", BarChart3],
-          ["Dashboard purchase tracking", CheckCircle2]
-        ].map(([item, Icon]) => (
-          <div key={item as string} className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        {(featureItems ?? [
+          { id: "rules", icon: "ShieldCheck", label: "Clear evaluation rules", visible: true },
+          { id: "workflow", icon: "BarChart3", label: "MT4/MT5-ready workflow", visible: true },
+          { id: "tracking", icon: "CheckCircle2", label: "Dashboard purchase tracking", visible: true }
+        ]).filter((item) => item.visible !== false).map((item) => {
+          const Icon = fundingIconMap[item.icon] ?? ShieldCheck;
+          return (
+          <div key={item.id} className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
             <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-white">
               <Icon className="h-4 w-4" />
             </span>
-            {item as string}
+            {item.label}
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

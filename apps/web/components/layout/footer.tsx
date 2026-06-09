@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CreditCard, Facebook, Github, Instagram, Landmark, Linkedin, Music2, Send, Twitter, Wallet, Youtube } from "lucide-react";
+import { BadgeDollarSign, CreditCard, DollarSign, Facebook, Github, Instagram, Landmark, Linkedin, Music2, Send, ShieldCheck, Twitter, Wallet, Youtube } from "lucide-react";
 import type { TranslationKey } from "@/lib/i18n";
 import { getCmsPages, type CmsPage } from "@/lib/cms";
 import { defaultSiteSettings, getSiteSettings } from "@/lib/site-settings";
@@ -42,14 +42,7 @@ const columns = [
   }
 ];
 
-const paymentBadges = [
-  { label: "Visa", icon: CreditCard, className: "border-blue-400/25 bg-blue-500/10 text-blue-700 dark:text-blue-200" },
-  { label: "Mastercard", icon: CreditCard, className: "border-rose-400/25 bg-rose-500/10 text-rose-700 dark:text-rose-200" },
-  { label: "Bank", icon: Landmark, className: "border-emerald-400/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200" },
-  { label: "Crypto", icon: Wallet, className: "border-cyan-400/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200" },
-  { label: "Airtm", icon: Wallet, className: "border-violet-400/25 bg-violet-500/10 text-violet-700 dark:text-violet-200" },
-  { label: "Skrill", icon: Wallet, className: "border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-200" }
-];
+const paymentIconMap = { BadgeDollarSign, CreditCard, DollarSign, Landmark, ShieldCheck, Wallet };
 
 const socialIconMap = {
   facebook: Facebook,
@@ -65,26 +58,33 @@ const socialIconMap = {
   whatsapp: Send
 };
 
+function colorWithAlpha(color: string, alpha: string) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? `${color}${alpha}` : color;
+}
+
 export function Footer() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState(defaultSiteSettings);
   const [cmsFooterLinks, setCmsFooterLinks] = useState<CmsPage[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
-    getSiteSettings().then((siteSettings) => {
-      if (mounted) setSettings(siteSettings);
-    });
-    getCmsPages().then((pages) => {
-      if (!mounted) return;
-      setCmsFooterLinks(
-        pages.filter((page) => {
-          const placement = page.metadata?.navPlacement;
-          return page.published !== false && (placement === "footer" || placement === "both");
-        })
-      );
-    });
+    Promise.all([getSiteSettings(), getCmsPages()])
+      .then(([siteSettings, pages]) => {
+        if (!mounted) return;
+        setSettings(siteSettings);
+        setCmsFooterLinks(
+          pages.filter((page) => {
+            const placement = page.metadata?.navPlacement;
+            return page.published !== false && (placement === "footer" || placement === "both");
+          })
+        );
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
     return () => {
       mounted = false;
@@ -102,6 +102,39 @@ export function Footer() {
   const dynamicFooterLinks = cmsFooterLinks
     .map((page) => ({ href: page.slug === "home" ? "/" : `/${page.slug}`, label: page.metadata?.navLabel || page.title }))
     .filter((link) => !staticFooterHrefs.has(link.href));
+  const showDownloadBadges = settings.androidBadgeVisible || settings.iosBadgeVisible;
+  const footerText = settings.footerText || t("footer.text");
+  const footerCopyright = settings.footerCopyright || t("footer.copy");
+
+  if (loading) {
+    return (
+      <footer className="border-t border-slate-200 bg-white py-12 dark:border-white/10 dark:bg-[#020817]">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 md:grid-cols-[1.2fr_2fr] lg:px-8">
+          <div>
+            <div className="h-10 w-40 animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+            <div className="mt-4 h-20 max-w-sm animate-pulse rounded-md bg-slate-200 dark:bg-white/10" />
+            <div className="mt-5 flex gap-2">
+              {[0, 1, 2, 3].map((item) => <span key={item} className="h-10 w-10 animate-pulse rounded-full bg-slate-200 dark:bg-white/10" />)}
+            </div>
+          </div>
+          <div className="grid gap-8 sm:grid-cols-3">
+            {[0, 1, 2].map((column) => (
+              <div key={column}>
+                <div className="h-4 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+                <div className="mt-4 grid gap-3">
+                  {[0, 1, 2, 3, 4].map((row) => <div key={row} className="h-3 w-28 animate-pulse rounded bg-slate-200 dark:bg-white/10" />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mx-auto mt-10 max-w-7xl border-t border-slate-200 px-4 pt-8 dark:border-white/10">
+          <div className="h-10 max-w-xl animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+          <div className="mx-auto mt-8 h-4 w-72 animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+        </div>
+      </footer>
+    );
+  }
 
   return (
     <footer className="border-t border-slate-200 bg-white py-12 dark:border-white/10 dark:bg-[#020817]">
@@ -109,7 +142,7 @@ export function Footer() {
         <div>
           <BrandLogo />
           <p className="mt-4 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-400">
-            {t("footer.text")}
+            {footerText}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             {socialLinks.map((social) => {
@@ -151,16 +184,21 @@ export function Footer() {
           ))}
         </div>
       </div>
-      <div className="mx-auto mt-10 grid max-w-7xl gap-6 border-t border-slate-200 px-4 pt-8 sm:px-6 md:grid-cols-[1fr_auto_auto] md:items-center lg:px-8 dark:border-white/10">
+      <div className="mx-auto mt-10 grid max-w-7xl gap-6 border-t border-slate-200 px-4 pt-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-center lg:px-8 dark:border-white/10">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("footer.cards")}</p>
           <div className="mt-3 flex max-w-xl flex-wrap gap-2">
-            {paymentBadges.map((badge) => {
-              const Icon = badge.icon;
+            {settings.paymentBadges.filter((badge) => badge.enabled && badge.label).map((badge) => {
+              const Icon = paymentIconMap[badge.icon as keyof typeof paymentIconMap] ?? CreditCard;
               return (
                 <span
-                  key={badge.label}
-                  className={`inline-flex h-10 items-center gap-2 rounded-full border px-3 text-xs font-black uppercase tracking-wide shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:shadow-[0_12px_30px_rgba(0,0,0,0.22)] ${badge.className}`}
+                  key={badge.id}
+                  className="inline-flex h-10 items-center gap-2 rounded-full border px-3 text-xs font-black uppercase tracking-wide shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:shadow-[0_12px_30px_rgba(0,0,0,0.22)]"
+                  style={{
+                    borderColor: colorWithAlpha(badge.borderColor, "66"),
+                    backgroundColor: colorWithAlpha(badge.backgroundColor, "1A"),
+                    color: badge.textColor
+                  }}
                 >
                   <Icon className="h-3.5 w-3.5" />
                   {badge.label}
@@ -169,10 +207,10 @@ export function Footer() {
             })}
           </div>
         </div>
-        <div>
+        {showDownloadBadges ? <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("footer.download")}</p>
           <div className="mt-3 grid gap-2">
-            {settings.androidAppEnabled && !settings.androidAppComingSoon ? (
+            {settings.androidBadgeVisible ? settings.androidAppEnabled && !settings.androidAppComingSoon ? (
               <Link href={settings.androidAppUrl} target="_blank" rel="noreferrer" aria-label="Download on Google Play" className="inline-flex transition hover:opacity-90">
                 {settings.androidBadgeImageUrl ? (
                   <img src={settings.androidBadgeImageUrl} alt="Download on Google Play" className="h-auto max-h-[62px] max-w-[210px]" />
@@ -189,8 +227,8 @@ export function Footer() {
                 )}
                 <span className="absolute -right-2 -top-2 rounded-full bg-warning px-2 py-1 text-[10px] font-black uppercase text-slate-950">Coming soon</span>
               </span>
-            )}
-            {settings.iosAppEnabled && !settings.iosAppComingSoon ? (
+            ) : null}
+            {settings.iosBadgeVisible ? settings.iosAppEnabled && !settings.iosAppComingSoon ? (
               <Link href={settings.iosAppUrl} target="_blank" rel="noreferrer" aria-label="Download on the App Store" className="inline-flex transition hover:opacity-90">
                 {settings.iosBadgeImageUrl ? (
                   <img src={settings.iosBadgeImageUrl} alt="Download on the App Store" className="h-auto max-h-[62px] max-w-[210px]" />
@@ -207,10 +245,12 @@ export function Footer() {
                 )}
                 <span className="absolute -right-2 -top-2 rounded-full bg-warning px-2 py-1 text-[10px] font-black uppercase text-slate-950">Coming soon</span>
               </span>
-            )}
+            ) : null}
           </div>
-        </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 md:text-right">{t("footer.copy")}</p>
+        </div> : null}
+      </div>
+      <div className="mx-auto mt-8 max-w-7xl border-t border-slate-200 px-4 pt-6 text-center sm:px-6 lg:px-8 dark:border-white/10">
+        <p className="text-sm text-slate-500 dark:text-slate-400">{footerCopyright}</p>
       </div>
     </footer>
   );

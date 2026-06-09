@@ -24,7 +24,12 @@ import {
   AlertCircle,
   ExternalLink,
   FileVideo,
+  ArrowRight,
+  BadgeDollarSign,
+  BarChart3,
+  DollarSign,
   Smartphone,
+  Target,
   Tablet,
   Monitor,
   Navigation,
@@ -36,7 +41,8 @@ import {
   Globe2,
   Layers,
   ShieldCheck,
-  Clock3
+  Clock3,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,10 +50,51 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { CmsSectionRenderer } from "@/components/cms/cms-section-renderer";
 import { LegalPage, cmsLegalSections } from "@/components/layout/legal-page";
+import { AffiliateMarketingPage } from "@/components/marketing/affiliate-marketing-page";
+import { FaqList } from "@/components/marketing/faq-list";
+import { HowItWorksMarketingPage } from "@/components/marketing/how-it-works-marketing-page";
+import { PayoutsMarketingPage } from "@/components/marketing/payouts-marketing-page";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { getStoredAuthToken } from "@/store/auth-store";
 import { cmsPageDrafts, mergeCmsPage, type CmsPage, type CmsSection } from "@/lib/cms";
+import {
+  affiliateIconOptions,
+  defaultAffiliatePageContent,
+  parseAffiliatePageContent,
+  type AffiliateCard,
+  type AffiliateCta,
+  type AffiliateIconName,
+  type AffiliateMetric
+} from "@/lib/affiliate-page-content";
+import { defaultCmsFaqItems, parseFaqItems, type CmsFaqItem } from "@/lib/faq-page-content";
+import {
+  defaultFundingPageContent,
+  fundingIconOptions,
+  parseFundingPageContent,
+  type FundingCta,
+  type FundingFeatureItem,
+  type FundingHeroStat,
+  type FundingIconName
+} from "@/lib/funding-page-content";
+import {
+  defaultPayoutsPageContent,
+  parsePayoutsPageContent,
+  payoutIconOptions,
+  type PayoutCard,
+  type PayoutCta,
+  type PayoutIconName,
+  type PayoutMetric
+} from "@/lib/payouts-page-content";
+import {
+  defaultHowItWorksPageContent,
+  howIconOptions,
+  parseHowItWorksPageContent,
+  type HowCta,
+  type HowIconName,
+  type HowMetric,
+  type HowStep
+} from "@/lib/how-it-works-page-content";
 import {
   accountDeletionSections,
   aboutSections,
@@ -120,6 +167,16 @@ const legalPreviewConfig: Record<string, { eyebrow?: string; fallback: LegalSect
   "risk-disclosure": { eyebrow: "Risk", fallback: riskSections },
   "refund-policy": { eyebrow: "Payments", fallback: refundSections },
   "account-deletion": { fallback: accountDeletionSections }
+};
+
+const fundingIconMap: Record<FundingIconName, typeof Trophy> = {
+  Trophy,
+  BadgeDollarSign,
+  BarChart3,
+  ShieldCheck,
+  CheckCircle2,
+  Target,
+  DollarSign
 };
 
 function pageDisplayName(page: CmsPage) {
@@ -367,6 +424,26 @@ function LiveCmsPagePreview({
     );
   }
 
+  if (page.slug === "funding-programs") {
+    return <FundingCmsLivePreview page={page} selectedIndex={selectedIndex} onSelectSection={onSelectSection} />;
+  }
+
+  if (page.slug === "faq") {
+    return <FaqCmsLivePreview page={page} selectedIndex={selectedIndex} onSelectSection={onSelectSection} />;
+  }
+
+  if (page.slug === "affiliate") {
+    return <AffiliateCmsLivePreview page={page} selectedIndex={selectedIndex} onSelectSection={onSelectSection} />;
+  }
+
+  if (page.slug === "payouts") {
+    return <PayoutsCmsLivePreview page={page} selectedIndex={selectedIndex} onSelectSection={onSelectSection} />;
+  }
+
+  if (page.slug === "how-it-works") {
+    return <HowItWorksCmsLivePreview page={page} selectedIndex={selectedIndex} onSelectSection={onSelectSection} />;
+  }
+
   return (
     <div className="bg-white text-slate-950 dark:bg-slate-950 dark:text-white">
       {sections.map((section, index) => {
@@ -400,6 +477,277 @@ function LiveCmsPagePreview({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function HowItWorksCmsLivePreview({
+  page,
+  selectedIndex,
+  onSelectSection
+}: {
+  page: CmsPage;
+  selectedIndex: number;
+  onSelectSection: (index: number) => void;
+}) {
+  const intro = page.sections?.[0];
+  const steps = page.sections?.[1];
+
+  return (
+    <div className="relative">
+      <div className="pointer-events-none">
+        <HowItWorksMarketingPage page={page} intro={intro} stepsSection={steps} />
+      </div>
+      {[intro, steps].map((section, index) =>
+        section ? (
+          <button
+            key={section.sectionKey}
+            type="button"
+            onClick={() => onSelectSection(index)}
+            className={cn(
+              "absolute left-3 z-20 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-md px-3 py-2 text-xs font-black shadow-lg transition",
+              index === 0 ? "top-3" : "top-[39rem]",
+              selectedIndex === index ? "bg-primary text-white" : "bg-slate-950/85 text-white"
+            )}
+          >
+            <span className="rounded bg-white/20 px-1.5 py-0.5">{index + 1}</span>
+            <span className="truncate">{section.label || section.title || "Section"}</span>
+          </button>
+        ) : null
+      )}
+    </div>
+  );
+}
+
+function PayoutsCmsLivePreview({
+  page,
+  selectedIndex,
+  onSelectSection
+}: {
+  page: CmsPage;
+  selectedIndex: number;
+  onSelectSection: (index: number) => void;
+}) {
+  const intro = page.sections?.[0];
+  const workflow = page.sections?.[1];
+
+  return (
+    <div className="relative">
+      <div className="pointer-events-none">
+        <PayoutsMarketingPage page={page} intro={intro} workflowSection={workflow} />
+      </div>
+      {[intro, workflow].map((section, index) =>
+        section ? (
+          <button
+            key={section.sectionKey}
+            type="button"
+            onClick={() => onSelectSection(index)}
+            className={cn(
+              "absolute left-3 z-20 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-md px-3 py-2 text-xs font-black shadow-lg transition",
+              index === 0 ? "top-3" : "top-[39rem]",
+              selectedIndex === index ? "bg-primary text-white" : "bg-slate-950/85 text-white"
+            )}
+          >
+            <span className="rounded bg-white/20 px-1.5 py-0.5">{index + 1}</span>
+            <span className="truncate">{section.label || section.title || "Section"}</span>
+          </button>
+        ) : null
+      )}
+    </div>
+  );
+}
+
+function AffiliateCmsLivePreview({
+  page,
+  selectedIndex,
+  onSelectSection
+}: {
+  page: CmsPage;
+  selectedIndex: number;
+  onSelectSection: (index: number) => void;
+}) {
+  const intro = page.sections?.[0];
+  const linkSection = page.sections?.[1];
+
+  return (
+    <div className="relative">
+      <div className="pointer-events-none">
+        <AffiliateMarketingPage page={page} intro={intro} linkSection={linkSection} preview />
+      </div>
+      {[intro, linkSection].map((section, index) => (
+        section ? (
+          <button
+            key={section.sectionKey}
+            type="button"
+            onClick={() => onSelectSection(index)}
+            className={cn(
+              "absolute left-3 z-20 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-md px-3 py-2 text-xs font-black shadow-lg transition",
+              index === 0 ? "top-3" : "top-[27rem]",
+              selectedIndex === index ? "bg-primary text-white" : "bg-slate-950/85 text-white"
+            )}
+          >
+            <span className="rounded bg-white/20 px-1.5 py-0.5">{index + 1}</span>
+            <span className="truncate">{section.label || section.title || "Section"}</span>
+          </button>
+        ) : null
+      ))}
+    </div>
+  );
+}
+
+function FaqCmsLivePreview({
+  page,
+  selectedIndex,
+  onSelectSection
+}: {
+  page: CmsPage;
+  selectedIndex: number;
+  onSelectSection: (index: number) => void;
+}) {
+  const intro = page.sections?.[0];
+  const questions = page.sections?.[1];
+  const faqItems = parseFaqItems(page.metadata);
+  const visibleCount = faqItems.filter((item) => item.visible !== false && item.question.trim()).length;
+
+  return (
+    <div className="bg-[#f7fbff] text-slate-950 dark:bg-[#061126] dark:text-white">
+      {intro ? (
+        <div className={cn("group relative border-2 transition", selectedIndex === 0 ? "border-primary" : "border-transparent hover:border-primary/40")}>
+          <div className="pointer-events-none">
+            <CmsSectionRenderer section={{ ...intro, published: true, isVisible: true }} />
+          </div>
+          <button
+            type="button"
+            onClick={() => onSelectSection(0)}
+            className={cn("absolute left-3 top-3 z-20 rounded-md px-3 py-2 text-xs font-black shadow-lg", selectedIndex === 0 ? "bg-primary text-white" : "bg-slate-950/85 text-white")}
+          >
+            1 Intro
+          </button>
+        </div>
+      ) : null}
+
+      <div className={cn("group relative border-2 px-4 pb-16 transition sm:px-6 lg:px-8", selectedIndex === 1 ? "border-primary" : "border-transparent hover:border-primary/40")}>
+        <button
+          type="button"
+          onClick={() => onSelectSection(1)}
+          className={cn("absolute left-3 top-3 z-20 rounded-md px-3 py-2 text-xs font-black shadow-lg", selectedIndex === 1 ? "bg-primary text-white" : "bg-slate-950/85 text-white")}
+        >
+          2 Questions
+        </button>
+        <div className="mx-auto grid max-w-7xl gap-8 pt-14 lg:grid-cols-[21rem_minmax(0,1fr)]">
+          <div className="lg:self-start">
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+              <span className="inline-flex rounded-md bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-primary">FAQ</span>
+              <h2 className="mt-4 text-3xl font-black leading-tight text-slate-950 dark:text-white">{questions?.title ?? "Frequently asked questions"}</h2>
+              <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">{questions?.content ?? page.content}</p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="rounded-md bg-slate-50 p-4 dark:bg-white/[0.05]">
+                  <strong className="block text-2xl font-black text-slate-950 dark:text-white">{visibleCount}</strong>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Answers</span>
+                </div>
+                <div className="rounded-md bg-slate-50 p-4 dark:bg-white/[0.05]">
+                  <strong className="block text-2xl font-black text-slate-950 dark:text-white">CMS</strong>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Editable</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <FaqList items={faqItems} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FundingCmsLivePreview({
+  page,
+  selectedIndex,
+  onSelectSection
+}: {
+  page: CmsPage;
+  selectedIndex: number;
+  onSelectSection: (index: number) => void;
+}) {
+  const intro = page.sections?.[0];
+  const fundingContent = parseFundingPageContent(page.metadata);
+
+  return (
+    <div className="bg-[#061126] text-white">
+      <section className="relative px-4 py-12 sm:px-6 lg:px-8">
+        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_22%_12%,rgba(37,99,235,0.16),transparent_34%),radial-gradient(circle_at_82%_8%,rgba(34,211,238,0.14),transparent_30%)]" />
+        <div className="relative mx-auto max-w-7xl">
+          <div
+            className={cn("group relative grid gap-8 border-2 p-2 transition lg:grid-cols-[1fr_auto] lg:items-end", selectedIndex === 0 ? "border-primary" : "border-transparent hover:border-primary/40")}
+          >
+            <button
+              type="button"
+              onClick={() => onSelectSection(0)}
+              className={cn("absolute left-3 top-3 z-20 rounded-md px-3 py-2 text-xs font-black shadow-lg", selectedIndex === 0 ? "bg-primary text-white" : "bg-slate-950/85 text-white")}
+            >
+              1 Intro
+            </button>
+            <div className="max-w-3xl pt-12">
+              <span className="inline-flex rounded-md bg-primary/20 px-3 py-1 text-xs font-black text-blue-200">{intro?.eyebrow ?? "Funding Programs"}</span>
+              <h1 className="mt-5 text-4xl font-semibold leading-tight text-white sm:text-5xl">{intro?.title ?? page.title}</h1>
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300">{intro?.content ?? page.content}</p>
+            </div>
+            <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.05] p-4 shadow-sm backdrop-blur sm:grid-cols-3 lg:w-[31rem]">
+              {fundingContent.heroStats.filter((item) => item.visible !== false).map((item) => {
+                const Icon = fundingIconMap[item.icon] ?? Trophy;
+                return (
+                  <div key={item.id} className="rounded-md bg-white/[0.05] p-3">
+                    <Icon className="h-4 w-4 text-primary" />
+                    <strong className="mt-3 block text-xl text-white">{item.value}</strong>
+                    <span className="text-xs font-semibold text-slate-400">{item.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-10 rounded-lg border border-dashed border-blue-300/30 bg-white/[0.04] p-8 text-center">
+            <h3 className="text-xl font-black text-white">Challenge cards are managed from Admin Challenges</h3>
+            <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              Account size, price, rules, leverage, phase count, and active status come from the challenges module.
+            </p>
+            <a href="/admin/challenges" className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-black text-white">
+              Open challenges <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+
+          <div className="mt-8 grid gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-4 md:grid-cols-3">
+            {fundingContent.featureItems.filter((item) => item.visible !== false).map((item) => {
+              const Icon = fundingIconMap[item.icon] ?? ShieldCheck;
+              return (
+                <div key={item.id} className="flex items-center gap-3 text-sm font-semibold text-slate-200">
+                  <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-white">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {item.label}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            {fundingContent.ctas.filter((cta) => cta.visible !== false).map((cta) => {
+              const Icon = cta.icon ? fundingIconMap[cta.icon] : null;
+              return (
+                <span
+                  key={cta.id}
+                  className={cn(
+                    "inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-black",
+                    cta.style === "secondary" ? "bg-white/10 text-white ring-1 ring-white/10" : "bg-primary text-white"
+                  )}
+                >
+                  {Icon ? <Icon className="h-4 w-4" /> : null}
+                  {cta.label || "Button"}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -559,6 +907,293 @@ export default function AdvancedCmsEditor() {
   function updatePageMetadata(patch: Record<string, any>) {
     if (!draft) return;
     setDraft({ ...draft, metadata: { ...(draft.metadata ?? {}), ...patch } });
+  }
+
+  function fundingContent() {
+    return parseFundingPageContent(draft?.metadata);
+  }
+
+  function faqContent() {
+    return parseFaqItems(draft?.metadata);
+  }
+
+  function affiliateContent() {
+    return parseAffiliatePageContent(draft?.metadata);
+  }
+
+  function payoutsContent() {
+    return parsePayoutsPageContent(draft?.metadata);
+  }
+
+  function howContent() {
+    return parseHowItWorksPageContent(draft?.metadata);
+  }
+
+  function updateHowMetric(index: number, patch: Partial<HowMetric>) {
+    const content = howContent();
+    updatePageMetadata({ metrics: content.metrics.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addHowMetric() {
+    const content = howContent();
+    updatePageMetadata({
+      metrics: [...content.metrics, { ...defaultHowItWorksPageContent.metrics[0], id: `metric-${Date.now()}`, value: "New", label: "Metric", visible: true }]
+    });
+  }
+
+  function removeHowMetric(index: number) {
+    const content = howContent();
+    updatePageMetadata({ metrics: content.metrics.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateHowStep(index: number, patch: Partial<HowStep>) {
+    const content = howContent();
+    updatePageMetadata({ steps: content.steps.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addHowStep() {
+    const content = howContent();
+    updatePageMetadata({
+      steps: [...content.steps, { ...defaultHowItWorksPageContent.steps[0], id: `step-${Date.now()}`, title: "New step", content: "Describe this step.", helper: "Add a short note.", visible: true }]
+    });
+  }
+
+  function removeHowStep(index: number) {
+    const content = howContent();
+    updatePageMetadata({ steps: content.steps.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateHowCta(index: number, patch: Partial<HowCta>) {
+    const content = howContent();
+    updatePageMetadata({ ctas: content.ctas.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addHowCta() {
+    const content = howContent();
+    updatePageMetadata({ ctas: [...content.ctas, { id: `cta-${Date.now()}`, label: "New button", href: "/", style: "secondary", visible: true }] });
+  }
+
+  function removeHowCta(index: number) {
+    const content = howContent();
+    updatePageMetadata({ ctas: content.ctas.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updatePayoutMetric(index: number, patch: Partial<PayoutMetric>) {
+    const content = payoutsContent();
+    updatePageMetadata({ metrics: content.metrics.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addPayoutMetric() {
+    const content = payoutsContent();
+    updatePageMetadata({
+      metrics: [...content.metrics, { ...defaultPayoutsPageContent.metrics[0], id: `metric-${Date.now()}`, value: "New", label: "Metric", helper: "Describe this metric.", visible: true }]
+    });
+  }
+
+  function removePayoutMetric(index: number) {
+    const content = payoutsContent();
+    updatePageMetadata({ metrics: content.metrics.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updatePayoutListItem(group: "workflow" | "methods" | "trustCards", index: number, patch: Partial<PayoutCard>) {
+    const content = payoutsContent();
+    updatePageMetadata({ [group]: content[group].map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addPayoutListItem(group: "workflow" | "methods" | "trustCards") {
+    const content = payoutsContent();
+    const fallback = defaultPayoutsPageContent[group][0];
+    updatePageMetadata({
+      [group]: [...content[group], { ...fallback, id: `${group}-${Date.now()}`, title: "New item", content: "Describe this payout item.", visible: true }]
+    });
+  }
+
+  function removePayoutListItem(group: "workflow" | "methods" | "trustCards", index: number) {
+    const content = payoutsContent();
+    updatePageMetadata({ [group]: content[group].filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updatePayoutCta(index: number, patch: Partial<PayoutCta>) {
+    const content = payoutsContent();
+    updatePageMetadata({ ctas: content.ctas.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addPayoutCta() {
+    const content = payoutsContent();
+    updatePageMetadata({ ctas: [...content.ctas, { id: `cta-${Date.now()}`, label: "New button", href: "/", style: "secondary", visible: true }] });
+  }
+
+  function removePayoutCta(index: number) {
+    const content = payoutsContent();
+    updatePageMetadata({ ctas: content.ctas.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateAffiliateMetric(index: number, patch: Partial<AffiliateMetric>) {
+    const content = affiliateContent();
+    updatePageMetadata({ metrics: content.metrics.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addAffiliateMetric() {
+    const content = affiliateContent();
+    updatePageMetadata({
+      metrics: [
+        ...content.metrics,
+        { ...defaultAffiliatePageContent.metrics[0], id: `metric-${Date.now()}`, value: "New", label: "Metric", helper: "Describe this metric.", visible: true }
+      ]
+    });
+  }
+
+  function removeAffiliateMetric(index: number) {
+    const content = affiliateContent();
+    updatePageMetadata({ metrics: content.metrics.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateAffiliateStep(index: number, patch: Partial<AffiliateCard>) {
+    const content = affiliateContent();
+    updatePageMetadata({ steps: content.steps.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addAffiliateStep() {
+    const content = affiliateContent();
+    updatePageMetadata({
+      steps: [
+        ...content.steps,
+        { ...defaultAffiliatePageContent.steps[0], id: `step-${Date.now()}`, title: "New step", content: "Describe this affiliate step.", visible: true }
+      ]
+    });
+  }
+
+  function removeAffiliateStep(index: number) {
+    const content = affiliateContent();
+    updatePageMetadata({ steps: content.steps.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateAffiliateBenefit(index: number, patch: Partial<AffiliateCard>) {
+    const content = affiliateContent();
+    updatePageMetadata({ benefits: content.benefits.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addAffiliateBenefit() {
+    const content = affiliateContent();
+    updatePageMetadata({
+      benefits: [
+        ...content.benefits,
+        { ...defaultAffiliatePageContent.benefits[0], id: `benefit-${Date.now()}`, title: "New benefit", content: "Describe this affiliate benefit.", visible: true }
+      ]
+    });
+  }
+
+  function removeAffiliateBenefit(index: number) {
+    const content = affiliateContent();
+    updatePageMetadata({ benefits: content.benefits.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateAffiliateCta(index: number, patch: Partial<AffiliateCta>) {
+    const content = affiliateContent();
+    updatePageMetadata({ ctas: content.ctas.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addAffiliateCta() {
+    const content = affiliateContent();
+    updatePageMetadata({
+      ctas: [...content.ctas, { id: `cta-${Date.now()}`, label: "New button", href: "/", style: "secondary", visible: true }]
+    });
+  }
+
+  function removeAffiliateCta(index: number) {
+    const content = affiliateContent();
+    updatePageMetadata({ ctas: content.ctas.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateFaqItem(index: number, patch: Partial<CmsFaqItem>) {
+    const items = faqContent();
+    updatePageMetadata({ faqItems: items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addFaqItem() {
+    const items = faqContent();
+    updatePageMetadata({
+      faqItems: [
+        ...items,
+        {
+          id: `faq-${Date.now()}`,
+          question: "New question",
+          answer: "Add the answer here.",
+          bullets: [],
+          visible: true
+        }
+      ]
+    });
+  }
+
+  function removeFaqItem(index: number) {
+    const items = faqContent();
+    updatePageMetadata({ faqItems: items.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function resetFaqItemsFromDefaults() {
+    updatePageMetadata({ faqItems: defaultCmsFaqItems });
+    pushToast({ title: "FAQ defaults restored", message: "Review the imported FAQ questions, then save the page.", tone: "success" });
+  }
+
+  function updateFundingHeroStat(index: number, patch: Partial<FundingHeroStat>) {
+    const content = fundingContent();
+    updatePageMetadata({ heroStats: content.heroStats.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addFundingHeroStat() {
+    const content = fundingContent();
+    updatePageMetadata({
+      heroStats: [
+        ...content.heroStats,
+        { ...defaultFundingPageContent.heroStats[0], id: `stat-${Date.now()}`, value: "New", label: "Metric", visible: true }
+      ]
+    });
+  }
+
+  function removeFundingHeroStat(index: number) {
+    const content = fundingContent();
+    updatePageMetadata({ heroStats: content.heroStats.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateFundingFeatureItem(index: number, patch: Partial<FundingFeatureItem>) {
+    const content = fundingContent();
+    updatePageMetadata({ featureItems: content.featureItems.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addFundingFeatureItem() {
+    const content = fundingContent();
+    updatePageMetadata({
+      featureItems: [
+        ...content.featureItems,
+        { ...defaultFundingPageContent.featureItems[0], id: `feature-${Date.now()}`, label: "New funding benefit", visible: true }
+      ]
+    });
+  }
+
+  function removeFundingFeatureItem(index: number) {
+    const content = fundingContent();
+    updatePageMetadata({ featureItems: content.featureItems.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function updateFundingCta(index: number, patch: Partial<FundingCta>) {
+    const content = fundingContent();
+    updatePageMetadata({ ctas: content.ctas.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)) });
+  }
+
+  function addFundingCta() {
+    const content = fundingContent();
+    updatePageMetadata({
+      ctas: [
+        ...content.ctas,
+        { id: `cta-${Date.now()}`, icon: "Target", label: "New button", href: "/", style: "secondary", visible: true }
+      ]
+    });
+  }
+
+  function removeFundingCta(index: number) {
+    const content = fundingContent();
+    updatePageMetadata({ ctas: content.ctas.filter((_, itemIndex) => itemIndex !== index) });
   }
 
   function updateSectionMetadata(patch: Record<string, any>) {
@@ -1292,6 +1927,615 @@ export default function AdvancedCmsEditor() {
                         </div>
                       </div>
                     </div>
+
+                    {draft?.slug === "funding-programs" ? (
+                      <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-400/20 dark:bg-blue-400/10">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-black text-slate-900 dark:text-white">Funding page live content</h3>
+                            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Edit the hero metric cards, bottom rule strip, and CTA buttons shown on /funding-programs.</p>
+                          </div>
+                          <a
+                            href="/admin/challenges"
+                            className="inline-flex h-10 items-center gap-2 rounded-md border border-blue-200 bg-white px-3 text-sm font-black text-primary transition hover:border-primary/40 dark:border-blue-400/20 dark:bg-white/[0.06]"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Edit challenge cards
+                          </a>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Hero metric cards</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addFundingHeroStat}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {fundingContent().heroStats.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updateFundingHeroStat(index, { icon: value as FundingIconName })} options={fundingIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Big text
+                                  <Input value={item.value} onChange={(e) => updateFundingHeroStat(index, { value: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={item.label} onChange={(e) => updateFundingHeroStat(index, { label: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updateFundingHeroStat(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeFundingHeroStat(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Bottom feature strip</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addFundingFeatureItem}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {fundingContent().featureItems.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updateFundingFeatureItem(index, { icon: value as FundingIconName })} options={fundingIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Text
+                                  <Input value={item.label} onChange={(e) => updateFundingFeatureItem(index, { label: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updateFundingFeatureItem(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeFundingFeatureItem(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Page CTA buttons</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addFundingCta}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {fundingContent().ctas.map((cta, index) => (
+                              <div key={cta.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_10rem_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={cta.icon ?? "Target"} onChange={(value) => updateFundingCta(index, { icon: value as FundingIconName })} options={fundingIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={cta.label} onChange={(e) => updateFundingCta(index, { label: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  URL
+                                  <Input value={cta.href} onChange={(e) => updateFundingCta(index, { href: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Style
+                                  <CustomSelect
+                                    value={cta.style}
+                                    onChange={(value) => updateFundingCta(index, { style: value as FundingCta["style"] })}
+                                    options={[
+                                      { value: "primary", label: "Primary" },
+                                      { value: "secondary", label: "Secondary" }
+                                    ]}
+                                  />
+                                </label>
+                                <SwitchControl checked={cta.visible !== false} onChange={(checked) => updateFundingCta(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeFundingCta(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft?.slug === "affiliate" ? (
+                      <div className="space-y-5 rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-4 dark:border-blue-400/20 dark:from-blue-400/10 dark:to-white/[0.03]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-sm font-black text-slate-900 dark:text-white">Affiliate page content</h3>
+                              <span className="rounded bg-white px-2 py-1 text-xs font-black text-primary shadow-sm dark:bg-white/10">
+                                {affiliateContent().metrics.filter((item) => item.visible !== false).length} stats
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Edit the affiliate hero metrics, workflow steps, benefit cards, and CTA buttons shown on /affiliate.</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Hero metric cards</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addAffiliateMetric}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {affiliateContent().metrics.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.4fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updateAffiliateMetric(index, { icon: value as AffiliateIconName })} options={affiliateIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Value
+                                  <Input value={item.value} onChange={(e) => updateAffiliateMetric(index, { value: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={item.label} onChange={(e) => updateAffiliateMetric(index, { label: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Helper
+                                  <Input value={item.helper} onChange={(e) => updateAffiliateMetric(index, { helper: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updateAffiliateMetric(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeAffiliateMetric(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Workflow steps</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addAffiliateStep}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {affiliateContent().steps.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1.5fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updateAffiliateStep(index, { icon: value as AffiliateIconName })} options={affiliateIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Title
+                                  <Input value={item.title} onChange={(e) => updateAffiliateStep(index, { title: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Text
+                                  <Input value={item.content} onChange={(e) => updateAffiliateStep(index, { content: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updateAffiliateStep(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeAffiliateStep(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Benefit cards</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addAffiliateBenefit}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {affiliateContent().benefits.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1.5fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updateAffiliateBenefit(index, { icon: value as AffiliateIconName })} options={affiliateIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Title
+                                  <Input value={item.title} onChange={(e) => updateAffiliateBenefit(index, { title: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Text
+                                  <Input value={item.content} onChange={(e) => updateAffiliateBenefit(index, { content: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updateAffiliateBenefit(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeAffiliateBenefit(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">CTA buttons</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addAffiliateCta}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {affiliateContent().ctas.map((cta, index) => (
+                              <div key={cta.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={cta.label} onChange={(e) => updateAffiliateCta(index, { label: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  URL
+                                  <Input value={cta.href} onChange={(e) => updateAffiliateCta(index, { href: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Style
+                                  <CustomSelect
+                                    value={cta.style}
+                                    onChange={(value) => updateAffiliateCta(index, { style: value as AffiliateCta["style"] })}
+                                    options={[
+                                      { value: "primary", label: "Primary" },
+                                      { value: "secondary", label: "Secondary" }
+                                    ]}
+                                  />
+                                </label>
+                                <SwitchControl checked={cta.visible !== false} onChange={(checked) => updateAffiliateCta(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeAffiliateCta(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft?.slug === "payouts" ? (
+                      <div className="space-y-5 rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-4 dark:border-blue-400/20 dark:from-blue-400/10 dark:to-white/[0.03]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-sm font-black text-slate-900 dark:text-white">Payouts page content</h3>
+                              <span className="rounded bg-white px-2 py-1 text-xs font-black text-primary shadow-sm dark:bg-white/10">
+                                {payoutsContent().workflow.filter((item) => item.visible !== false).length} steps
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Edit the payout hero metrics, workflow, payout methods, trust cards, and CTA buttons shown on /payouts.</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Hero metric cards</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addPayoutMetric}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {payoutsContent().metrics.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.4fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updatePayoutMetric(index, { icon: value as PayoutIconName })} options={payoutIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Value
+                                  <Input value={item.value} onChange={(e) => updatePayoutMetric(index, { value: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={item.label} onChange={(e) => updatePayoutMetric(index, { label: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Helper
+                                  <Input value={item.helper} onChange={(e) => updatePayoutMetric(index, { helper: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updatePayoutMetric(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removePayoutMetric(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {([
+                          { key: "workflow", title: "Workflow steps", add: () => addPayoutListItem("workflow"), update: updatePayoutListItem, remove: removePayoutListItem },
+                          { key: "methods", title: "Payout methods", add: () => addPayoutListItem("methods"), update: updatePayoutListItem, remove: removePayoutListItem },
+                          { key: "trustCards", title: "Trust cards", add: () => addPayoutListItem("trustCards"), update: updatePayoutListItem, remove: removePayoutListItem }
+                        ] as const).map((group) => (
+                          <div key={group.key} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                              <h4 className="text-sm font-black text-slate-900 dark:text-white">{group.title}</h4>
+                              <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={group.add}>
+                                <Plus className="h-4 w-4" />
+                                Add
+                              </Button>
+                            </div>
+                            <div className="grid gap-3">
+                              {payoutsContent()[group.key].map((item, index) => (
+                                <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1.5fr)_9rem_auto] md:items-end">
+                                  <label className="grid gap-2 text-sm font-semibold">
+                                    Icon
+                                    <CustomSelect value={item.icon} onChange={(value) => group.update(group.key, index, { icon: value as PayoutIconName })} options={payoutIconOptions} />
+                                  </label>
+                                  <label className="grid gap-2 text-sm font-semibold">
+                                    Title
+                                    <Input value={item.title} onChange={(e) => group.update(group.key, index, { title: e.target.value })} />
+                                  </label>
+                                  <label className="grid gap-2 text-sm font-semibold">
+                                    Text
+                                    <Input value={item.content} onChange={(e) => group.update(group.key, index, { content: e.target.value })} />
+                                  </label>
+                                  <SwitchControl checked={item.visible !== false} onChange={(checked) => group.update(group.key, index, { visible: checked })} label="Show" />
+                                  <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => group.remove(group.key, index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">CTA buttons</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addPayoutCta}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {payoutsContent().ctas.map((cta, index) => (
+                              <div key={cta.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={cta.label} onChange={(e) => updatePayoutCta(index, { label: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  URL
+                                  <Input value={cta.href} onChange={(e) => updatePayoutCta(index, { href: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Style
+                                  <CustomSelect
+                                    value={cta.style}
+                                    onChange={(value) => updatePayoutCta(index, { style: value as PayoutCta["style"] })}
+                                    options={[
+                                      { value: "primary", label: "Primary" },
+                                      { value: "secondary", label: "Secondary" }
+                                    ]}
+                                  />
+                                </label>
+                                <SwitchControl checked={cta.visible !== false} onChange={(checked) => updatePayoutCta(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removePayoutCta(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft?.slug === "how-it-works" ? (
+                      <div className="space-y-5 rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-4 dark:border-blue-400/20 dark:from-blue-400/10 dark:to-white/[0.03]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-sm font-black text-slate-900 dark:text-white">How It Works page content</h3>
+                              <span className="rounded bg-white px-2 py-1 text-xs font-black text-primary shadow-sm dark:bg-white/10">
+                                {howContent().steps.filter((item) => item.visible !== false).length} steps
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Edit the hero metrics, workflow steps, helper notes, and CTA buttons shown on /how-it-works.</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Hero metric cards</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addHowMetric}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {howContent().metrics.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updateHowMetric(index, { icon: value as HowIconName })} options={howIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Value
+                                  <Input value={item.value} onChange={(e) => updateHowMetric(index, { value: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={item.label} onChange={(e) => updateHowMetric(index, { label: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updateHowMetric(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeHowMetric(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">Workflow steps</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addHowStep}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {howContent().steps.map((item, index) => (
+                              <div key={item.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Icon
+                                  <CustomSelect value={item.icon} onChange={(value) => updateHowStep(index, { icon: value as HowIconName })} options={howIconOptions} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Title
+                                  <Input value={item.title} onChange={(e) => updateHowStep(index, { title: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Text
+                                  <Input value={item.content} onChange={(e) => updateHowStep(index, { content: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Helper
+                                  <Input value={item.helper} onChange={(e) => updateHowStep(index, { helper: e.target.value })} />
+                                </label>
+                                <SwitchControl checked={item.visible !== false} onChange={(checked) => updateHowStep(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeHowStep(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">CTA buttons</h4>
+                            <Button type="button" variant="secondary" className="h-9 rounded-md px-3" onClick={addHowCta}>
+                              <Plus className="h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          <div className="grid gap-3">
+                            {howContent().ctas.map((cta, index) => (
+                              <div key={cta.id} className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_9rem_auto] md:items-end">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Label
+                                  <Input value={cta.label} onChange={(e) => updateHowCta(index, { label: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  URL
+                                  <Input value={cta.href} onChange={(e) => updateHowCta(index, { href: e.target.value })} />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Style
+                                  <CustomSelect
+                                    value={cta.style}
+                                    onChange={(value) => updateHowCta(index, { style: value as HowCta["style"] })}
+                                    options={[
+                                      { value: "primary", label: "Primary" },
+                                      { value: "secondary", label: "Secondary" }
+                                    ]}
+                                  />
+                                </label>
+                                <SwitchControl checked={cta.visible !== false} onChange={(checked) => updateHowCta(index, { visible: checked })} label="Show" />
+                                <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeHowCta(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft?.slug === "faq" ? (
+                      <div className="space-y-5 rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-4 dark:border-blue-400/20 dark:from-blue-400/10 dark:to-white/[0.03]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-sm font-black text-slate-900 dark:text-white">FAQ questions</h3>
+                              <span className="rounded bg-white px-2 py-1 text-xs font-black text-primary shadow-sm dark:bg-white/10">
+                                {faqContent().filter((item) => item.visible !== false).length} visible
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Edit the live FAQ accordion. Add new questions, hide old ones, and manage bullet points from here.</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={resetFaqItemsFromDefaults}>
+                              <Copy className="h-4 w-4" />
+                              Restore imported FAQ
+                            </Button>
+                            <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={addFaqItem}>
+                              <Plus className="h-4 w-4" />
+                              Add question
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4">
+                          {faqContent().map((item, index) => (
+                            <div key={item.id} className={cn("overflow-hidden rounded-lg border bg-white shadow-sm dark:bg-slate-950/40", item.visible === false ? "border-slate-200 opacity-70 dark:border-white/10" : "border-slate-200 dark:border-white/10")}>
+                              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary text-xs font-black text-white">
+                                    {String(index + 1).padStart(2, "0")}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-black text-slate-900 dark:text-white">{item.question || "Untitled question"}</p>
+                                    <p className="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">{item.bullets.length} bullet{item.bullets.length === 1 ? "" : "s"}</p>
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <div className="w-28">
+                                    <SwitchControl checked={item.visible !== false} onChange={(checked) => updateFaqItem(index, { visible: checked })} label="Show" />
+                                  </div>
+                                  <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removeFaqItem(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="grid gap-4 p-4">
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Question
+                                  <Input value={item.question} onChange={(e) => updateFaqItem(index, { question: e.target.value })} className="font-semibold" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Answer paragraphs
+                                  <textarea
+                                    value={item.answer}
+                                    onChange={(e) => updateFaqItem(index, { answer: e.target.value })}
+                                    placeholder="Use blank lines between paragraphs."
+                                    className="h-32 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-900 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                                  />
+                                </label>
+                                <label className="grid gap-2 text-sm font-semibold">
+                                  Bullet points
+                                  <textarea
+                                    value={item.bullets.join("\n")}
+                                    onChange={(e) => updateFaqItem(index, { bullets: e.target.value.split("\n").map((line) => line.trim()).filter(Boolean) })}
+                                    placeholder="One bullet per line"
+                                    className="h-24 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-900 shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          ))}
+                          {faqContent().length === 0 ? (
+                            <div className="rounded-md border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500 dark:border-white/10 dark:text-slate-400">
+                              No FAQ questions yet. Add one to show it on the live FAQ page.
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div>
                       <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">

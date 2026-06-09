@@ -1,4 +1,5 @@
-import { CmsPageView } from "@/components/cms/cms-page-view";
+import { AffiliateMarketingPage } from "@/components/marketing/affiliate-marketing-page";
+import { getCmsPage, getCmsSection } from "@/lib/cms";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -8,6 +9,10 @@ export const metadata = pageMetadata({
   keywords: ["prop firm affiliate", "trading affiliate program", "referral commissions"]
 });
 
-export default function AffiliatePage() {
-  return <CmsPageView slug="affiliate" fallbackTitle="Affiliate Program" />;
+export default async function AffiliatePage() {
+  const page = await getCmsPage("affiliate");
+  const intro = getCmsSection(page, "intro");
+  const linkSection = getCmsSection(page, "link");
+
+  return <AffiliateMarketingPage page={page} intro={intro} linkSection={linkSection} />;
 }

@@ -93,6 +93,28 @@ function SidebarTooltip({ label, children }: { label: string; children: ReactNod
   );
 }
 
+function StoreBadgeImage({
+  customSrc,
+  defaultSrc,
+  alt,
+  width = 154,
+  height = 46,
+  className = "h-9 w-auto"
+}: {
+  customSrc?: string;
+  defaultSrc: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  className?: string;
+}) {
+  if (customSrc) {
+    return <img src={customSrc} alt={alt} className={cn(className, "object-contain")} />;
+  }
+
+  return <Image src={defaultSrc} alt={alt} width={width} height={height} className={className} />;
+}
+
 export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
   const router = useRouter();
   const { tx } = useTranslation();
@@ -117,6 +139,8 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
   const verified = variant !== "admin" && user?.kycStatus === "APPROVED";
   const initials = initialsFor(displayName) || "PN";
   const visibleLinks = variant === "admin" ? copy.links.filter((link) => canAccessAdminHref(user, link.href)) : copy.links;
+  const androidVisible = siteSettings.androidBadgeVisible;
+  const iosVisible = siteSettings.iosBadgeVisible;
 
   useEffect(() => {
     hydrate(authScope);
@@ -250,48 +274,52 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
               <SidebarTooltip label="Install web app">
                 <PwaInstallButton label="" className="h-11 w-11 px-0" />
               </SidebarTooltip>
-              <SidebarTooltip label="Google Play">
-                {siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
-                  <Link href={siteSettings.androidAppUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center rounded-lg text-[10px] font-black text-primary transition hover:bg-primary/10 hover:text-blue-700 dark:hover:bg-white/10">
-                    Play
-                  </Link>
-                ) : (
-                  <span className="grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg text-[10px] font-black text-primary opacity-50">Soon</span>
-                )}
-              </SidebarTooltip>
-              <SidebarTooltip label="App Store">
-                {siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
-                  <Link href={siteSettings.iosAppUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center rounded-lg text-[10px] font-black text-primary transition hover:bg-primary/10 hover:text-blue-700 dark:hover:bg-white/10">
-                    iOS
-                  </Link>
-                ) : (
-                  <span className="grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg text-[10px] font-black text-primary opacity-50">Soon</span>
-                )}
-              </SidebarTooltip>
+              {androidVisible ? (
+                <SidebarTooltip label="Google Play">
+                  {siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
+                    <Link href={siteSettings.androidAppUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center rounded-lg text-[10px] font-black text-primary transition hover:bg-primary/10 hover:text-blue-700 dark:hover:bg-white/10">
+                      Play
+                    </Link>
+                  ) : (
+                    <span className="grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg text-[10px] font-black text-primary opacity-50">Soon</span>
+                  )}
+                </SidebarTooltip>
+              ) : null}
+              {iosVisible ? (
+                <SidebarTooltip label="App Store">
+                  {siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
+                    <Link href={siteSettings.iosAppUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center rounded-lg text-[10px] font-black text-primary transition hover:bg-primary/10 hover:text-blue-700 dark:hover:bg-white/10">
+                      iOS
+                    </Link>
+                  ) : (
+                    <span className="grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg text-[10px] font-black text-primary opacity-50">Soon</span>
+                  )}
+                </SidebarTooltip>
+              ) : null}
             </div>
           ) : (
             <div className="grid gap-2 px-1">
               <PwaInstallButton label="Install app" className="w-full justify-center" />
-              {siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
+              {androidVisible ? siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
                 <Link href={siteSettings.androidAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on Google Play">
-                  <Image src="/play-store-badge.svg" alt="Download on Google Play" width={154} height={46} className="h-9 w-auto" />
+                  <StoreBadgeImage customSrc={siteSettings.androidBadgeImageUrl} defaultSrc="/play-store-badge.svg" alt="Download on Google Play" />
                 </Link>
               ) : (
                 <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
-                  <Image src="/play-store-badge.svg" alt="Google Play coming soon" width={154} height={46} className="h-9 w-auto" />
+                  <StoreBadgeImage customSrc={siteSettings.androidBadgeImageUrl} defaultSrc="/play-store-badge.svg" alt="Google Play coming soon" />
                   <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
                 </span>
-              )}
-              {siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
+              ) : null}
+              {iosVisible ? siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
                 <Link href={siteSettings.iosAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on the App Store">
-                  <Image src="/app-store-badge.svg" alt="Download on the App Store" width={154} height={46} className="h-9 w-auto" />
+                  <StoreBadgeImage customSrc={siteSettings.iosBadgeImageUrl} defaultSrc="/app-store-badge.svg" alt="Download on the App Store" />
                 </Link>
               ) : (
                 <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
-                  <Image src="/app-store-badge.svg" alt="App Store coming soon" width={154} height={46} className="h-9 w-auto" />
+                  <StoreBadgeImage customSrc={siteSettings.iosBadgeImageUrl} defaultSrc="/app-store-badge.svg" alt="App Store coming soon" />
                   <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
                 </span>
-              )}
+              ) : null}
             </div>
           )}
           {collapsed ? (
@@ -412,26 +440,26 @@ export function WorkspaceShell({ children, variant }: WorkspaceShellProps) {
 
                 <div className="mt-5 grid gap-2 px-1">
                   <PwaInstallButton label="Install app" className="w-full justify-center" />
-                  {siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
+                  {androidVisible ? siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
                     <Link href={siteSettings.androidAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on Google Play">
-                      <Image src="/play-store-badge.svg" alt="Download on Google Play" width={154} height={46} className="h-9 w-auto" />
+                      <StoreBadgeImage customSrc={siteSettings.androidBadgeImageUrl} defaultSrc="/play-store-badge.svg" alt="Download on Google Play" />
                     </Link>
                   ) : (
                     <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
-                      <Image src="/play-store-badge.svg" alt="Google Play coming soon" width={154} height={46} className="h-9 w-auto" />
+                      <StoreBadgeImage customSrc={siteSettings.androidBadgeImageUrl} defaultSrc="/play-store-badge.svg" alt="Google Play coming soon" />
                       <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
                     </span>
-                  )}
-                  {siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
+                  ) : null}
+                  {iosVisible ? siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
                     <Link href={siteSettings.iosAppUrl} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center rounded-md transition hover:opacity-90" aria-label="Download on the App Store">
-                      <Image src="/app-store-badge.svg" alt="Download on the App Store" width={154} height={46} className="h-9 w-auto" />
+                      <StoreBadgeImage customSrc={siteSettings.iosBadgeImageUrl} defaultSrc="/app-store-badge.svg" alt="Download on the App Store" />
                     </Link>
                   ) : (
                     <span className="relative inline-flex h-11 cursor-not-allowed items-center justify-center rounded-md opacity-55">
-                      <Image src="/app-store-badge.svg" alt="App Store coming soon" width={154} height={46} className="h-9 w-auto" />
+                      <StoreBadgeImage customSrc={siteSettings.iosBadgeImageUrl} defaultSrc="/app-store-badge.svg" alt="App Store coming soon" />
                       <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="mt-5 rounded-lg bg-slate-50/75 p-3 ring-1 ring-slate-200/70 dark:bg-white/[0.04] dark:ring-white/10">

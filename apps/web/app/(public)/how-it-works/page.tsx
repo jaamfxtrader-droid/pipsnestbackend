@@ -1,4 +1,5 @@
-import { CmsPageView } from "@/components/cms/cms-page-view";
+import { HowItWorksMarketingPage } from "@/components/marketing/how-it-works-marketing-page";
+import { getCmsPage, getCmsSection } from "@/lib/cms";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
@@ -8,6 +9,10 @@ export const metadata = pageMetadata({
   keywords: ["how funded trading works", "prop firm process", "trader evaluation steps"]
 });
 
-export default function HowItWorksPage() {
-  return <CmsPageView slug="how-it-works" fallbackTitle="How It Works" />;
+export default async function HowItWorksPage() {
+  const page = await getCmsPage("how-it-works");
+  const intro = getCmsSection(page, "intro");
+  const steps = getCmsSection(page, "steps");
+
+  return <HowItWorksMarketingPage page={page} intro={intro} stepsSection={steps} />;
 }

@@ -7,20 +7,25 @@ import {
   CheckCircle2,
   Check,
   ChevronDown,
+  CreditCard,
+  DollarSign,
   Facebook,
   Github,
   ImageIcon,
   Instagram,
   Linkedin,
   Loader2,
+  Landmark,
   Music2,
   Plus,
   Save,
   Send,
+  ShieldCheck,
   Trash2,
   Trophy,
   Twitter,
   Upload,
+  Wallet,
   Youtube
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -65,6 +70,10 @@ function compact(value: number) {
   return new Intl.NumberFormat("en-US", { notation: Math.abs(value) >= 10000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(value);
 }
 
+function colorWithAlpha(color: string, alpha: string) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? `${color}${alpha}` : color;
+}
+
 const socialPlatforms = [
   { type: "instagram", label: "Instagram", placeholder: "https://instagram.com/yourbrand", Icon: Instagram },
   { type: "facebook", label: "Facebook", placeholder: "https://facebook.com/yourbrand", Icon: Facebook },
@@ -76,6 +85,15 @@ const socialPlatforms = [
   { type: "discord", label: "Discord", placeholder: "https://discord.gg/yourbrand", Icon: Send },
   { type: "whatsapp", label: "WhatsApp", placeholder: "https://wa.me/15551234567", Icon: Send },
   { type: "github", label: "GitHub", placeholder: "https://github.com/yourbrand", Icon: Github }
+];
+
+const paymentIconOptions = [
+  { value: "CreditCard", label: "Card", Icon: CreditCard },
+  { value: "Landmark", label: "Bank", Icon: Landmark },
+  { value: "Wallet", label: "Wallet", Icon: Wallet },
+  { value: "BadgeDollarSign", label: "Money badge", Icon: BadgeDollarSign },
+  { value: "DollarSign", label: "Dollar", Icon: DollarSign },
+  { value: "ShieldCheck", label: "Shield", Icon: ShieldCheck }
 ];
 
 function fileToDataUrl(file: File) {
@@ -132,6 +150,58 @@ function SocialPlatformSelect({ value, onChange }: { value: string; onChange: (v
                 <span className="flex min-w-0 items-center gap-2">
                   <Icon className="h-4 w-4 shrink-0" />
                   <span className="truncate">{platform.label}</span>
+                </span>
+                {active ? <Check className="h-4 w-4 shrink-0" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PaymentIconSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = paymentIconOptions.find((option) => option.value === value) ?? paymentIconOptions[0];
+  const SelectedIcon = selected.Icon;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        className="flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-slate-300/50 bg-white px-3 text-left text-sm font-black text-slate-900 transition hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/10 dark:text-white"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <SelectedIcon className="h-4 w-4 shrink-0 text-slate-400" />
+          <span className="truncate">{selected.label}</span>
+        </span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition", open ? "rotate-180" : "rotate-0")} />
+      </button>
+      {open ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-2xl dark:border-white/10 dark:bg-slate-950">
+          {paymentIconOptions.map((option) => {
+            const Icon = option.Icon;
+            const active = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex h-10 w-full items-center justify-between gap-3 rounded px-3 text-left text-sm font-semibold transition",
+                  active ? "bg-primary text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{option.label}</span>
                 </span>
                 {active ? <Check className="h-4 w-4 shrink-0" /> : null}
               </button>
@@ -205,7 +275,7 @@ function SiteSettingsPanel() {
   const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [openSettings, setOpenSettings] = useState({ stores: false, social: false });
+  const [openSettings, setOpenSettings] = useState({ footer: false, stores: false, payments: false, social: false });
 
   useEffect(() => {
     if (!token) {
@@ -273,6 +343,42 @@ function SiteSettingsPanel() {
     setSettings((current) => ({
       ...current,
       socialItems: current.socialItems.filter((_, itemIndex) => itemIndex !== index)
+    }));
+  }
+
+  function getPaymentIcon(icon: string) {
+    return paymentIconOptions.find((option) => option.value === icon) ?? paymentIconOptions[0];
+  }
+
+  function updatePaymentBadge(index: number, patch: Partial<SiteSettings["paymentBadges"][number]>) {
+    setSettings((current) => ({
+      ...current,
+      paymentBadges: current.paymentBadges.map((badge, badgeIndex) => (badgeIndex === index ? { ...badge, ...patch } : badge))
+    }));
+  }
+
+  function addPaymentBadge() {
+    setSettings((current) => ({
+      ...current,
+      paymentBadges: [
+        ...current.paymentBadges,
+        {
+          id: `payment-${Date.now()}`,
+          label: "New badge",
+          icon: "CreditCard",
+          textColor: "#1d4ed8",
+          backgroundColor: "#3b82f6",
+          borderColor: "#60a5fa",
+          enabled: true
+        }
+      ]
+    }));
+  }
+
+  function removePaymentBadge(index: number) {
+    setSettings((current) => ({
+      ...current,
+      paymentBadges: current.paymentBadges.filter((_, badgeIndex) => badgeIndex !== index)
     }));
   }
 
@@ -345,6 +451,28 @@ function SiteSettingsPanel() {
 
       <div className="mt-5 grid gap-5">
         <CollapsibleSettingsPanel
+          title="Footer text"
+          description="Edit the footer description and final copyright line."
+          open={openSettings.footer}
+          onToggle={() => setOpenSettings((current) => ({ ...current, footer: !current.footer }))}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-semibold">
+              Footer description
+              <textarea
+                value={settings.footerText}
+                onChange={(event) => setSettings((current) => ({ ...current, footerText: event.target.value }))}
+                className="h-28 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold">
+              Copyright line
+              <Input value={settings.footerCopyright} onChange={(event) => setSettings((current) => ({ ...current, footerCopyright: event.target.value }))} />
+            </label>
+          </div>
+        </CollapsibleSettingsPanel>
+
+        <CollapsibleSettingsPanel
           title="Store badges and app links"
           description="Manage Play Store and App Store URLs, custom badge images, visibility, and coming soon state."
           open={openSettings.stores}
@@ -355,21 +483,25 @@ function SiteSettingsPanel() {
             {
               title: "Google Play / Android",
               urlKey: "androidAppUrl" as const,
+              visibleKey: "androidBadgeVisible" as const,
               enabledKey: "androidAppEnabled" as const,
               comingSoonKey: "androidAppComingSoon" as const,
               imageKey: "androidBadgeImageUrl" as const,
               defaultImage: "/play-store-badge.svg",
-              enabledLabel: "Show Play Store",
+              visibleLabel: "Show Play Store badge",
+              enabledLabel: "Enable Play Store link",
               comingSoonLabel: "Play Store coming soon"
             },
             {
               title: "Apple App Store / iOS",
               urlKey: "iosAppUrl" as const,
+              visibleKey: "iosBadgeVisible" as const,
               enabledKey: "iosAppEnabled" as const,
               comingSoonKey: "iosAppComingSoon" as const,
               imageKey: "iosBadgeImageUrl" as const,
               defaultImage: "/app-store-badge.svg",
-              enabledLabel: "Show App Store",
+              visibleLabel: "Show App Store badge",
+              enabledLabel: "Enable App Store link",
               comingSoonLabel: "App Store coming soon"
             }
           ].map((store) => (
@@ -391,7 +523,12 @@ function SiteSettingsPanel() {
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Store URL</span>
                 <Input value={settings[store.urlKey]} onChange={(event) => setSettings((current) => ({ ...current, [store.urlKey]: event.target.value }))} />
               </label>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <SwitchTile
+                  checked={settings[store.visibleKey]}
+                  label={store.visibleLabel}
+                  onChange={(checked) => setSettings((current) => ({ ...current, [store.visibleKey]: checked }))}
+                />
                 <SwitchTile
                   checked={settings[store.enabledKey]}
                   label={store.enabledLabel}
@@ -425,6 +562,71 @@ function SiteSettingsPanel() {
             </div>
           ))}
         </div>
+        </CollapsibleSettingsPanel>
+
+        <CollapsibleSettingsPanel
+          title="Accepted payment badges"
+          description="Edit footer payment badge labels, icons, colors, and visibility."
+          open={openSettings.payments}
+          onToggle={() => setOpenSettings((current) => ({ ...current, payments: !current.payments }))}
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">Payment badges</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Enabled badges appear under Accepted Payments in the footer.</p>
+            </div>
+            <Button type="button" variant="secondary" className="h-10 rounded-md px-3" onClick={addPaymentBadge}>
+              <Plus className="h-4 w-4" />
+              Add badge
+            </Button>
+          </div>
+          <div className="grid gap-3">
+            {settings.paymentBadges.map((badge, index) => {
+              const selectedIcon = getPaymentIcon(badge.icon);
+              const PreviewIcon = selectedIcon.Icon;
+              return (
+                <div key={badge.id} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950/30 xl:grid-cols-[minmax(0,10rem)_minmax(0,11rem)_8rem_8rem_8rem_8rem_auto] xl:items-end">
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Label
+                    <Input value={badge.label} onChange={(event) => updatePaymentBadge(index, { label: event.target.value })} />
+                  </label>
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Icon
+                    <PaymentIconSelect value={badge.icon} onChange={(value) => updatePaymentBadge(index, { icon: value })} />
+                  </label>
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Text
+                    <Input type="color" value={badge.textColor} onChange={(event) => updatePaymentBadge(index, { textColor: event.target.value })} />
+                  </label>
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Background
+                    <Input type="color" value={badge.backgroundColor} onChange={(event) => updatePaymentBadge(index, { backgroundColor: event.target.value })} />
+                  </label>
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Border
+                    <Input type="color" value={badge.borderColor} onChange={(event) => updatePaymentBadge(index, { borderColor: event.target.value })} />
+                  </label>
+                  <SwitchTile checked={badge.enabled} label="Show" onChange={(checked) => updatePaymentBadge(index, { enabled: checked })} />
+                  <div className="flex gap-2">
+                    <span
+                      className="inline-flex h-10 items-center gap-2 rounded-full border px-3 text-xs font-black uppercase tracking-wide shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:shadow-[0_12px_30px_rgba(0,0,0,0.22)]"
+                      style={{
+                        borderColor: colorWithAlpha(badge.borderColor, "66"),
+                        backgroundColor: colorWithAlpha(badge.backgroundColor, "1A"),
+                        color: badge.textColor
+                      }}
+                    >
+                      <PreviewIcon className="h-3.5 w-3.5" />
+                      {badge.label || "Badge"}
+                    </span>
+                    <Button type="button" variant="danger" className="h-10 rounded-md px-3" onClick={() => removePaymentBadge(index)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </CollapsibleSettingsPanel>
 
         <CollapsibleSettingsPanel

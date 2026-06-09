@@ -10,6 +10,11 @@ import {
   termsSections,
   type LegalSection
 } from "@/lib/legal-content";
+import { defaultCmsFaqItems } from "@/lib/faq-page-content";
+import { defaultAffiliatePageContent } from "@/lib/affiliate-page-content";
+import { defaultFundingPageContent } from "@/lib/funding-page-content";
+import { defaultPayoutsPageContent } from "@/lib/payouts-page-content";
+import { defaultHowItWorksPageContent } from "@/lib/how-it-works-page-content";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
@@ -251,6 +256,7 @@ export const cmsPageDrafts: CmsPage[] = [
     title: "Choose the simulated capital track that fits your process.",
     content: "All programs are seeded into Prisma and exposed through the challenge API.",
     published: true,
+    metadata: defaultFundingPageContent,
     sections: [
       section("intro", "Intro", "Funding Programs", "Choose the simulated capital track that fits your process.", "All programs are seeded into Prisma and exposed through the challenge API.", 1)
     ]
@@ -267,6 +273,7 @@ export const cmsPageDrafts: CmsPage[] = [
     title: "A complete funding workflow from account to payout.",
     content: "Register, purchase a challenge, trade within the rules, and request payouts from the dashboard.",
     published: true,
+    metadata: defaultHowItWorksPageContent,
     sections: [
       section("intro", "Intro", "How It Works", "A complete funding workflow from account to payout.", "Register, purchase a challenge, trade within the rules, and request payouts from the dashboard.", 1),
       section("steps", "Steps", null, "Four clear steps from signup to scale", "Edit the heading and supporting copy around the operational steps from the CMS.", 2)
@@ -277,6 +284,7 @@ export const cmsPageDrafts: CmsPage[] = [
     title: "Request, review, approve, and track payouts.",
     content: "Trader payout requests flow through admin review with status tracking and clear payout history.",
     published: true,
+    metadata: defaultPayoutsPageContent,
     sections: [
       section("intro", "Intro", "Payouts", "Request, review, approve, and track payouts.", "Trader payout requests flow through admin review with status tracking and clear payout history.", 1),
       section("workflow", "Workflow", null, "A clean payout review workflow", "Explain payout submission, review, approval, and paid states from the CMS.", 2)
@@ -287,6 +295,7 @@ export const cmsPageDrafts: CmsPage[] = [
     title: "Referral tracking and commission reporting are built in.",
     content: "Every user gets a referral code while the API tracks referred users, conversion status, commission rate, and payout-ready amounts.",
     published: true,
+    metadata: defaultAffiliatePageContent,
     sections: [
       section("intro", "Intro", "Affiliate Program", "Referral tracking and commission reporting are built in.", "Every user gets a referral code while the API tracks referred users, conversion status, commission rate, and payout-ready amounts.", 1, "Become an Affiliate", "/dashboard/affiliate"),
       section("link", "Referral Link", null, "Demo referral link", "Control helper copy for the referral-link card from the CMS.", 2)
@@ -307,9 +316,10 @@ export const cmsPageDrafts: CmsPage[] = [
     title: "Common platform questions.",
     content: "Answers for funding, account assignment, coupons, affiliates, and future MT4/MT5 integrations.",
     published: true,
+    metadata: { faqItems: defaultCmsFaqItems },
     sections: [
       section("intro", "Intro", "FAQ", "Common platform questions.", "Answers for funding, account assignment, coupons, affiliates, and future MT4/MT5 integrations.", 1),
-      section("questions", "Questions", null, "Frequently asked questions", "Manage FAQ section framing from the CMS while detailed questions remain editable in code or future CMS fields.", 2)
+      section("questions", "Questions", null, "Frequently asked questions", "Manage FAQ questions from the CMS. Add, edit, hide, or remove questions from the admin panel.", 2)
     ]
   },
   {

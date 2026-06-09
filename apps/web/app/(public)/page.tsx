@@ -46,7 +46,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { apiFetch } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18n";
 import { getCmsPage, getCmsSection, getDefaultCmsPage, type CmsPage, type CmsSection } from "@/lib/cms";
-import { defaultSiteSettings, getSiteSettings } from "@/lib/site-settings";
+import { defaultSiteSettings, getSiteSettings, type SiteSettings } from "@/lib/site-settings";
 import { useTranslation } from "@/lib/use-translation";
 import { fundingPrograms } from "@/lib/mock-data";
 import { cn, currency } from "@/lib/utils";
@@ -178,6 +178,22 @@ function publicCta(value: string | null | undefined, fallback: string) {
   const trimmed = value?.trim();
   if (!trimmed || /\b(api|admin|cms|backend)\b/i.test(trimmed)) return fallback;
   return trimmed;
+}
+
+function StoreBadgeImage({
+  customSrc,
+  defaultSrc,
+  alt
+}: {
+  customSrc?: string;
+  defaultSrc: string;
+  alt: string;
+}) {
+  if (customSrc) {
+    return <img src={customSrc} alt={alt} className="h-10 w-auto object-contain" />;
+  }
+
+  return <Image src={defaultSrc} alt={alt} width={148} height={44} className="h-10 w-auto" />;
 }
 
 function journeyMetricHelper(metric: HomeJourneyMetric) {
@@ -1392,7 +1408,7 @@ function TraderDashboardSection({ section, metrics }: { section?: CmsSection; me
   );
 }
 
-function MeetTraderSection({ section, metrics, androidAppUrl }: { section?: CmsSection; metrics: HomeMetrics; androidAppUrl: string }) {
+function MeetTraderSection({ section, metrics, siteSettings }: { section?: CmsSection; metrics: HomeMetrics; siteSettings: SiteSettings }) {
   const title = publicCopy(section?.title, "Meet the trader area that moves with you.");
   const content = publicCopy(
     section?.content,
@@ -1487,15 +1503,38 @@ function MeetTraderSection({ section, metrics, androidAppUrl }: { section?: CmsS
             <AuthAwareLink href={section?.ctaHref ?? "/auth/register"} authenticatedHref="/dashboard">
               <Button>{ctaLabel}</Button>
             </AuthAwareLink>
-            <a
-              href={androidAppUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-10 items-center justify-center rounded-full transition hover:opacity-90"
-              aria-label="Download on Google Play"
-            >
-              <Image src="/play-store-badge.svg" alt="Download on Google Play" width={148} height={44} className="h-10 w-auto" />
-            </a>
+            {siteSettings.androidBadgeVisible ? siteSettings.androidAppEnabled && !siteSettings.androidAppComingSoon ? (
+              <a
+                href={siteSettings.androidAppUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center justify-center rounded-full transition hover:opacity-90"
+                aria-label="Download on Google Play"
+              >
+                <StoreBadgeImage customSrc={siteSettings.androidBadgeImageUrl} defaultSrc="/play-store-badge.svg" alt="Download on Google Play" />
+              </a>
+            ) : (
+              <span className="relative inline-flex h-10 cursor-not-allowed items-center justify-center rounded-full opacity-55">
+                <StoreBadgeImage customSrc={siteSettings.androidBadgeImageUrl} defaultSrc="/play-store-badge.svg" alt="Google Play coming soon" />
+                <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
+              </span>
+            ) : null}
+            {siteSettings.iosBadgeVisible ? siteSettings.iosAppEnabled && !siteSettings.iosAppComingSoon ? (
+              <a
+                href={siteSettings.iosAppUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center justify-center rounded-full transition hover:opacity-90"
+                aria-label="Download on the App Store"
+              >
+                <StoreBadgeImage customSrc={siteSettings.iosBadgeImageUrl} defaultSrc="/app-store-badge.svg" alt="Download on the App Store" />
+              </a>
+            ) : (
+              <span className="relative inline-flex h-10 cursor-not-allowed items-center justify-center rounded-full opacity-55">
+                <StoreBadgeImage customSrc={siteSettings.iosBadgeImageUrl} defaultSrc="/app-store-badge.svg" alt="App Store coming soon" />
+                <span className="absolute -right-1 -top-1 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-950">Soon</span>
+              </span>
+            ) : null}
             <PwaInstallButton label="Install app" />
           </div>
         </div>
@@ -1528,7 +1567,7 @@ export default function HomePage() {
   const [homePage, setHomePage] = useState<CmsPage | undefined>(() => getDefaultCmsPage("home"));
   const [rankPrograms, setRankPrograms] = useState<RankProgram[]>([]);
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics>(homeMetricsFallback);
-  const [androidAppUrl, setAndroidAppUrl] = useState(defaultSiteSettings.androidAppUrl);
+  const [siteSettings, setSiteSettings] = useState(defaultSiteSettings);
 
   useEffect(() => {
     let mounted = true;
@@ -1546,7 +1585,7 @@ export default function HomePage() {
     let mounted = true;
 
     getSiteSettings().then((siteSettings) => {
-      if (mounted) setAndroidAppUrl(siteSettings.androidAppUrl);
+      if (mounted) setSiteSettings(siteSettings);
     });
 
     return () => {
@@ -1689,7 +1728,7 @@ export default function HomePage() {
 
       <TraderDashboardSection section={dashboardSection} metrics={homeMetrics} />
 
-      <MeetTraderSection section={mobileSection} metrics={homeMetrics} androidAppUrl={androidAppUrl} />
+      <MeetTraderSection section={mobileSection} metrics={homeMetrics} siteSettings={siteSettings} />
 
       <section className="bg-[#020817] py-20 text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
