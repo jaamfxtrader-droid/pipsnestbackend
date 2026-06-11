@@ -140,6 +140,11 @@ enum ManualFundingAccountType {
   WALLET
 }
 
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
 model User {
   id                    String              @id @default(cuid())
   name                  String
@@ -183,6 +188,9 @@ model User {
   notifications         Notification[]
   cmsUpdates            CmsPage[]           @relation("CmsUpdatedBy")
   cmsSectionUpdates     CmsSection[]        @relation("CmsSectionUpdatedBy")
+  blogComments          BlogComment[]
+  blogReactions         BlogReaction[]
+  blogCommentReactions  BlogCommentReaction[]
   activityLogs          ActivityLog[]
   authOtps              AuthOtp[]
   kycSubmissions        KycSubmission[]
@@ -537,6 +545,158 @@ model CmsSection {
   @@index([pageId])
   @@index([pageSlug, sortOrder])
   @@index([published])
+}
+
+model Blog {
+  id               String        @id @default(cuid())
+  title            String
+  slug             String        @unique
+  shortDescription String
+  description      String
+  content          String
+  category         String?
+  tags             String[]      @default([])
+  keywords         String[]      @default([])
+  status           BlogStatus    @default(DRAFT)
+  referenceCtaText String?
+  referenceCtaUrl  String?
+  seoTitle         String?
+  seoDescription   String?
+  seoKeywords      String[]      @default([])
+  canonicalUrl     String?
+  authorName       String?
+  viewCount        Int           @default(0)
+  publishedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  images           BlogImage[]
+  videos           BlogVideo[]
+  attachments      BlogAttachment[]
+  sections         BlogSection[]
+  comments         BlogComment[]
+  reactions        BlogReaction[]
+
+  @@index([status, createdAt])
+  @@index([category])
+}
+
+model BlogImage {
+  id       String @id @default(cuid())
+  blogId   String
+  imageUrl String
+  altText  String?
+  order    Int    @default(0)
+  blog     Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
+
+  @@index([blogId, order])
+}
+
+model BlogVideo {
+  id       String @id @default(cuid())
+  blogId   String
+  videoUrl String
+  title    String?
+  order    Int    @default(0)
+  blog     Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
+
+  @@index([blogId, order])
+}
+
+model BlogAttachment {
+  id          String @id @default(cuid())
+  blogId      String
+  fileUrl     String
+  title       String?
+  contentType String?
+  order       Int    @default(0)
+  blog        Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
+
+  @@index([blogId, order])
+}
+
+model BlogSection {
+  id       String  @id @default(cuid())
+  blogId   String
+  heading  String
+  content  String
+  imageUrl String?
+  order    Int     @default(0)
+  blog     Blog    @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  videos   BlogSectionVideo[]
+
+  @@index([blogId, order])
+}
+
+model BlogSectionVideo {
+  id        String      @id @default(cuid())
+  sectionId String
+  videoUrl  String
+  title     String?
+  order     Int         @default(0)
+  section   BlogSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId, order])
+}
+
+model BlogComment {
+  id          String         @id @default(cuid())
+  blogId      String
+  userId      String
+  parentId    String?
+  isAnonymous Boolean        @default(false)
+  displayName String?
+  content     String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  blog        Blog           @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      BlogComment?   @relation("BlogCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     BlogComment[]  @relation("BlogCommentReplies")
+  images      CommentImage[]
+  reactions   BlogCommentReaction[]
+
+  @@index([blogId, createdAt])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model CommentImage {
+  id        String      @id @default(cuid())
+  commentId String
+  imageUrl  String
+  comment   BlogComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+}
+
+model BlogReaction {
+  id        String   @id @default(cuid())
+  blogId    String
+  userId    String
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([blogId, userId])
+  @@index([blogId, type])
+  @@index([userId])
+}
+
+model BlogCommentReaction {
+  id        String      @id @default(cuid())
+  commentId String
+  userId    String
+  type      String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  comment   BlogComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([commentId, type])
+  @@index([userId])
 }
 
 model ActivityLog {

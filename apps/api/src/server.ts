@@ -7,6 +7,7 @@ import { env } from "./config/env.js";
 import { prisma } from "./config/prisma.js";
 import { errorHandler, notFound } from "./middleware/error.js";
 import { apiRouter } from "./routes/index.js";
+import { blogLiveEvents } from "./services/blog-live.service.js";
 import { supportLiveEvents } from "./services/support-live.service.js";
 import { verifyToken } from "./utils/jwt.js";
 
@@ -47,7 +48,12 @@ type SupportSocket = WebSocket & {
   ticketId?: string;
 };
 
+type BlogSocket = WebSocket & {
+  slug?: string;
+};
+
 const supportWss = new WebSocketServer({ server, path: "/api/support/live" });
+const blogWss = new WebSocketServer({ server, path: "/api/blogs/comments/live" });
 
 supportWss.on("connection", async (socket: SupportSocket, request) => {
   try {
@@ -80,9 +86,36 @@ supportLiveEvents.on("support:event", ({ ticketId, payload }) => {
   }
 });
 
+blogWss.on("connection", async (socket: BlogSocket, request) => {
+  try {
+    const requestUrl = new URL(request.url ?? "", `http://${request.headers.host ?? "localhost"}`);
+    const slug = requestUrl.searchParams.get("slug");
+    if (!slug) throw new Error("Missing blog slug");
+
+    const blog = await prisma.blog.findFirst({ where: { slug, status: "PUBLISHED" }, select: { slug: true } });
+    if (!blog) throw new Error("Blog not found");
+
+    socket.slug = blog.slug;
+    socket.send(JSON.stringify({ type: "blog.connected", slug: blog.slug }));
+  } catch {
+    socket.close(1008, "Unauthorized");
+  }
+});
+
+blogLiveEvents.on("blog:comment", ({ slug, payload }) => {
+  const message = JSON.stringify(payload);
+  for (const client of blogWss.clients) {
+    const socket = client as BlogSocket;
+    if (socket.readyState === 1 && socket.slug === slug) {
+      socket.send(message);
+    }
+  }
+});
+
 async function shutdown() {
   await prisma.$disconnect();
   supportWss.close();
+  blogWss.close();
   server.close(() => process.exit(0));
 }
 

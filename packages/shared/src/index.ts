@@ -14,6 +14,7 @@ export const manualFundingAccountTypes = ["CRYPTO", "BANK", "WALLET"] as const;
 export const couponCategories = ["CHALLENGE", "TOPUP", "ALL"] as const;
 export const kycStatuses = ["PENDING", "APPROVED", "REJECTED"] as const;
 export const kycDocumentTypes = ["PICTURE_ID", "PASSPORT"] as const;
+export const blogStatuses = ["DRAFT", "PUBLISHED"] as const;
 
 function instructionBulletCount(value: string) {
   return value
@@ -262,6 +263,87 @@ export const supportTicketSchema = z.object({
   attachments: z.array(z.string().max(8_000_000, "Attachment is too large")).max(4).optional()
 });
 
+const commaList = z
+  .union([z.array(z.string()), z.string()])
+  .optional()
+  .transform((value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((item) => item.trim()).filter(Boolean);
+    return value.split(",").map((item) => item.trim()).filter(Boolean);
+  });
+
+export const blogImageSchema = z.object({
+  imageUrl: z.string().min(1, "Image URL is required").max(8_000_000, "Image is too large"),
+  altText: z.string().trim().max(160, "Alt text is too long").optional().or(z.literal("")),
+  order: z.coerce.number().int().min(0).default(0)
+});
+
+export const blogVideoSchema = z.object({
+  videoUrl: z.string().trim().min(1, "Video is required").max(80_000_000, "Video is too large"),
+  title: z.string().trim().max(120, "Video title is too long").optional().or(z.literal("")),
+  order: z.coerce.number().int().min(0).default(0)
+});
+
+export const blogAttachmentSchema = z.object({
+  fileUrl: z.string().trim().min(1, "Attachment is required").max(80_000_000, "Attachment is too large"),
+  title: z.string().trim().max(140, "Attachment title is too long").optional().or(z.literal("")),
+  contentType: z.string().trim().max(80, "Content type is too long").optional().or(z.literal("")),
+  order: z.coerce.number().int().min(0).default(0)
+});
+
+export const blogSectionSchema = z.object({
+  heading: z.string().trim().min(2, "Section heading is required").max(180, "Section heading is too long"),
+  content: z.string().trim().min(1, "Section content is required"),
+  imageUrl: z.string().max(8_000_000, "Section image is too large").optional().or(z.literal("")),
+  videos: z.array(blogVideoSchema).max(2, "Maximum 2 section videos allowed").optional().default([]),
+  order: z.coerce.number().int().min(0).default(0)
+});
+
+export const blogSchema = z.object({
+  title: z.string().trim().min(2, "Title is required").max(180, "Title is too long"),
+  slug: z
+    .string()
+    .trim()
+    .min(2, "Slug is required")
+    .max(180, "Slug is too long")
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use a clean URL slug"),
+  shortDescription: z.string().trim().min(10, "Short description is required").max(300, "Short description is too long"),
+  description: z.string().trim().min(10, "Description is required"),
+  content: z.string().trim().min(10, "Full content is required"),
+  category: z.string().trim().max(80, "Category is too long").optional().or(z.literal("")),
+  tags: commaList,
+  keywords: commaList,
+  status: z.enum(blogStatuses).default("DRAFT"),
+  referenceCtaText: z.string().trim().max(80, "CTA text is too long").optional().or(z.literal("")),
+  referenceCtaUrl: z.string().trim().url("Enter a valid CTA URL").optional().or(z.literal("")),
+  seoTitle: z.string().trim().max(180, "SEO title is too long").optional().or(z.literal("")),
+  seoDescription: z.string().trim().max(300, "SEO description is too long").optional().or(z.literal("")),
+  seoKeywords: commaList,
+  canonicalUrl: z.string().trim().url("Enter a valid canonical URL").optional().or(z.literal("")),
+  authorName: z.string().trim().max(100, "Author name is too long").optional().or(z.literal("")),
+  publishedAt: z.string().trim().datetime().optional().or(z.literal("")),
+  images: z.array(blogImageSchema).min(2, "Add at least 2 blog images").max(5, "Maximum 5 blog images allowed"),
+  videos: z.array(blogVideoSchema).max(2, "Maximum 2 videos allowed").optional().default([]),
+  attachments: z.array(blogAttachmentSchema).max(5, "Maximum 5 attachments allowed").optional().default([]),
+  sections: z.array(blogSectionSchema).optional().default([])
+});
+
+export const blogStatusSchema = z.object({
+  status: z.enum(blogStatuses)
+});
+
+export const blogCommentSchema = z.object({
+  content: z.string().trim().min(1, "Comment is required").max(5000, "Comment is too long"),
+  parentId: z.string().trim().optional().or(z.literal("")),
+  isAnonymous: z.boolean().default(false),
+  displayName: z.string().trim().max(80, "Display name is too long").optional().or(z.literal("")),
+  images: z.array(z.string().max(8_000_000, "Comment image is too large")).max(4, "Maximum 4 comment images allowed").optional().default([])
+});
+
+export const reactionSchema = z.object({
+  type: z.enum(["LIKE", "DISLIKE"])
+});
+
 export const ticketReplySchema = z.object({
   message: z.string().min(1).optional(),
   attachments: z.array(z.string().max(8_000_000, "Attachment is too large")).max(4).optional()
@@ -293,3 +375,5 @@ export type TopUpRequestInput = z.infer<typeof topUpRequestSchema>;
 export type ManualFundingAccountInput = z.infer<typeof manualFundingAccountSchema>;
 export type KycSubmissionInput = z.infer<typeof kycSubmissionSchema>;
 export type SupportTicketInput = z.infer<typeof supportTicketSchema>;
+export type BlogInput = z.infer<typeof blogSchema>;
+export type BlogCommentInput = z.infer<typeof blogCommentSchema>;

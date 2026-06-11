@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole, UserRound } from "lucide-react";
 import { AuthSideVisual } from "@/components/auth/auth-side-visual";
@@ -36,6 +36,10 @@ export default function AdminLoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setRememberMe(window.localStorage.getItem("pipnest_admin_remember") === "true");
+  }, []);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -47,6 +51,7 @@ export default function AdminLoginPage() {
       });
 
       setAuth(data.token, data.user, { remember: rememberMe, scope: "admin" });
+      window.localStorage.setItem("pipnest_admin_remember", rememberMe ? "true" : "false");
       const nextPath = new URLSearchParams(window.location.search).get("next") ?? "/admin";
       router.replace(nextPath);
     } catch (error) {

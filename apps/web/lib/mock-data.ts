@@ -3,6 +3,7 @@ import {
   BadgeDollarSign,
   Banknote,
   BarChart3,
+  BookOpenText,
   CircleDollarSign,
   FileText,
   Headphones,
@@ -149,6 +150,7 @@ export const adminLinks = [
   { href: "/admin/coupons", label: "Coupons", icon: Ticket },
   { href: "/admin/affiliate", label: "Affiliate", icon: Megaphone },
   { href: "/admin/cms", label: "CMS Pages", icon: FileText },
+  { href: "/admin/blogs", label: "Blog CMS", icon: BookOpenText },
   { href: "/admin/settings", label: "Settings", icon: Settings }
 ];
 

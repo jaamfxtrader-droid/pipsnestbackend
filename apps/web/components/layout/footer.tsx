@@ -16,6 +16,7 @@ const columns = [
     links: [
       ["footer.about", "/about"],
       ["footer.contact", "/contact"],
+      ["Blogs", "/blogs"],
       ["nav.affiliate", "/affiliate"],
       ["footer.faq", "/faq"]
     ]
@@ -169,7 +170,7 @@ export function Footer() {
               <div className="mt-4 grid gap-3 text-sm text-slate-600 dark:text-slate-400">
                 {column.links.map(([label, href]) => (
                   <Link key={href} href={href} className="transition hover:text-primary">
-                    {t(label as TranslationKey)}
+                    {label.startsWith("footer.") || label.startsWith("nav.") ? t(label as TranslationKey) : label}
                   </Link>
                 ))}
                 {column.title === "footer.company"

@@ -155,3 +155,48 @@ export async function uploadManualFundingAccountImage(value: string | null | und
     return null;
   }
 }
+
+export async function uploadBlogImage(value: string | null | undefined) {
+  if (!value) return null;
+  if (!DATA_IMAGE_PATTERN.test(value)) return value;
+
+  if (!isCloudinaryConfigured()) {
+    console.warn("Cloudinary is not configured. Blog image will be stored without Cloudinary upload.");
+    return value;
+  }
+
+  try {
+    return await uploadDataFile(value, "blogs/images", "image");
+  } catch (error) {
+    console.error(`Blog image upload failed: ${getErrorMessage(error)}`);
+    return value;
+  }
+}
+
+export async function uploadBlogMedia(value: string | null | undefined) {
+  if (!value) return null;
+  if (!DATA_FILE_PATTERN.test(value)) return value;
+
+  if (!isCloudinaryConfigured()) {
+    console.warn("Cloudinary is not configured. Blog media will be stored without Cloudinary upload.");
+    return value;
+  }
+
+  try {
+    return await uploadDataFile(value, "blogs/media", "auto");
+  } catch (error) {
+    console.error(`Blog media upload failed: ${getErrorMessage(error)}`);
+    return value;
+  }
+}
+
+export async function uploadBlogCommentImages(values: string[] | null | undefined) {
+  if (!values?.length) return [];
+
+  const uploaded: string[] = [];
+  for (const value of values.slice(0, 4)) {
+    const imageUrl = await uploadBlogImage(value);
+    if (imageUrl) uploaded.push(imageUrl);
+  }
+  return uploaded;
+}

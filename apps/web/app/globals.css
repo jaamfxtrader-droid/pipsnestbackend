@@ -20,6 +20,7 @@ body {
   margin: 0;
   background: #f7fbff;
   color: #0f172a;
+  @apply select-none;
 }
 
 .dark body {
