@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { FileVideo, ImagePlus, Loader2, Plus, Save, Trash2, UploadCloud, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,10 +35,10 @@ type BlogEditorForm = {
   canonicalUrl: string;
   authorName: string;
   publishedAt: string;
-  images: Array<{ imageUrl: string; altText: string; order: number }>;
-  videos: Array<{ videoUrl: string; title: string; order: number }>;
+  images: Array<{ imageUrl: string; title: string; caption: string; altText: string; order: number }>;
+  videos: Array<{ videoUrl: string; title: string; caption: string; order: number }>;
   attachments: Array<{ fileUrl: string; title: string; contentType: string; order: number }>;
-  sections: Array<{ heading: string; content: string; imageUrl: string; videos: Array<{ videoUrl: string; title: string; order: number }>; order: number }>;
+  sections: Array<{ heading: string; content: string; imageUrl: string; videos: Array<{ videoUrl: string; title: string; caption: string; order: number }>; order: number }>;
 };
 
 const emptyForm: BlogEditorForm = {
@@ -60,10 +60,10 @@ const emptyForm: BlogEditorForm = {
   authorName: "PipNest Editorial",
   publishedAt: "",
   images: [
-    { imageUrl: "", altText: "", order: 0 },
-    { imageUrl: "", altText: "", order: 1 }
+    { imageUrl: "", title: "", caption: "", altText: "", order: 0 },
+    { imageUrl: "", title: "", caption: "", altText: "", order: 1 }
   ],
-  videos: [] as Array<{ videoUrl: string; title: string; order: number }>,
+  videos: [] as Array<{ videoUrl: string; title: string; caption: string; order: number }>,
   attachments: [] as Array<{ fileUrl: string; title: string; contentType: string; order: number }>,
   sections: [{ heading: "", content: "", imageUrl: "", videos: [], order: 0 }]
 };
@@ -80,6 +80,20 @@ function toCsv(value?: string[] | null) {
   return value?.join(", ") ?? "";
 }
 
+function limitText(value: string, max: number) {
+  return value.trim().slice(0, max);
+}
+
+function optionalUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  try {
+    return new URL(trimmed).toString();
+  } catch {
+    return "";
+  }
+}
+
 async function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -87,6 +101,82 @@ async function fileToDataUrl(file: File) {
     reader.onerror = () => reject(new Error("Image could not be read"));
     reader.readAsDataURL(file);
   });
+}
+
+function formatBytes(value: number) {
+  if (!value) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${(value / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+type MediaPickerProps = {
+  kind: "image" | "video";
+  value: string;
+  title?: string;
+  caption?: string;
+  altText?: string;
+  compact?: boolean;
+  onFile(file?: File): void;
+  onClear(): void;
+  onTitle?(value: string): void;
+  onCaption?(value: string): void;
+  onAltText?(value: string): void;
+};
+
+function MediaPicker({ kind, value, title, caption, altText, compact, onFile, onClear, onTitle, onCaption, onAltText }: MediaPickerProps) {
+  const [fileMeta, setFileMeta] = useState("");
+  const accept = kind === "image" ? "image/*" : "video/*";
+  const Icon = kind === "image" ? ImagePlus : FileVideo;
+  const label = value ? `Change ${kind}` : `Upload ${kind}`;
+
+  return (
+    <div className="grid gap-3">
+      <div className={cn("overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-white/15 dark:bg-white/[0.04]", compact ? "aspect-[16/9]" : "aspect-[16/10]")}>
+        {value ? (
+          kind === "image" ? (
+            <img src={value} alt={altText || title || ""} className="h-full w-full object-cover" />
+          ) : (
+            <video src={value} className="h-full w-full object-cover" controls preload="metadata" />
+          )
+        ) : (
+          <div className="grid h-full place-items-center px-4 text-center text-slate-500 dark:text-slate-400">
+            <span className="grid justify-items-center gap-2">
+              <Icon className="h-8 w-8" />
+              <span className="text-sm font-semibold">Select {kind}</span>
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-white transition hover:bg-blue-500">
+          <UploadCloud className="h-4 w-4" />
+          {label}
+          <input
+            type="file"
+            accept={accept}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              setFileMeta(file ? `${file.name} (${formatBytes(file.size)})` : "");
+              onFile(file);
+              event.currentTarget.value = "";
+            }}
+            className="hidden"
+          />
+        </label>
+        {value ? (
+          <Button type="button" variant="secondary" className="h-10 px-3" onClick={onClear}>
+            <X className="h-4 w-4" />
+            Clear
+          </Button>
+        ) : null}
+      </div>
+      {fileMeta ? <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{fileMeta}</p> : null}
+      {onTitle ? <Input value={title ?? ""} onChange={(event) => onTitle(event.target.value)} placeholder={`${kind === "image" ? "Image" : "Video"} title`} /> : null}
+      {onCaption ? <Input value={caption ?? ""} onChange={(event) => onCaption(event.target.value)} placeholder={`${kind === "image" ? "Image" : "Video"} caption`} /> : null}
+      {onAltText ? <Input value={altText ?? ""} onChange={(event) => onAltText(event.target.value)} placeholder="Alt text" /> : null}
+    </div>
+  );
 }
 
 export function BlogForm({ blogId }: BlogFormProps) {
@@ -129,15 +219,15 @@ export function BlogForm({ blogId }: BlogFormProps) {
           canonicalUrl: blog.canonicalUrl ?? "",
           authorName: blog.authorName ?? "PipNest Editorial",
           publishedAt: blog.publishedAt ? new Date(blog.publishedAt).toISOString().slice(0, 16) : "",
-          images: blog.images.map((image, index) => ({ imageUrl: image.imageUrl, altText: image.altText ?? "", order: image.order ?? index })),
-          videos: blog.videos.map((video, index) => ({ videoUrl: video.videoUrl, title: video.title ?? "", order: video.order ?? index })),
+          images: blog.images.map((image, index) => ({ imageUrl: image.imageUrl, title: image.title ?? "", caption: image.caption ?? "", altText: image.altText ?? "", order: image.order ?? index })),
+          videos: blog.videos.map((video, index) => ({ videoUrl: video.videoUrl, title: video.title ?? "", caption: video.caption ?? "", order: video.order ?? index })),
           attachments: blog.attachments.map((attachment, index) => ({ fileUrl: attachment.fileUrl, title: attachment.title ?? "", contentType: attachment.contentType ?? "", order: attachment.order ?? index })),
           sections: blog.sections.length
             ? blog.sections.map((section, index) => ({
                 heading: section.heading,
                 content: section.content,
                 imageUrl: section.imageUrl ?? "",
-                videos: (section.videos ?? []).map((video, videoIndex) => ({ videoUrl: video.videoUrl, title: video.title ?? "", order: video.order ?? videoIndex })),
+                videos: (section.videos ?? []).map((video, videoIndex) => ({ videoUrl: video.videoUrl, title: video.title ?? "", caption: video.caption ?? "", order: video.order ?? videoIndex })),
                 order: section.order ?? index
               }))
             : [{ heading: "", content: "", imageUrl: "", videos: [], order: 0 }]
@@ -155,7 +245,14 @@ export function BlogForm({ blogId }: BlogFormProps) {
   }, [blogId, scope, token, pushToast]);
 
   const validImages = useMemo(() => form.images.filter((image) => image.imageUrl.trim()), [form.images]);
-  const canSave = form.title.trim() && form.slug.trim() && form.description.trim() && form.content.trim() && validImages.length >= 2 && validImages.length <= 5;
+  const canSave =
+    form.title.trim().length >= 2 &&
+    form.slug.trim().length >= 2 &&
+    form.shortDescription.trim().length >= 10 &&
+    form.description.trim().length >= 10 &&
+    form.content.trim().length >= 10 &&
+    validImages.length >= 2 &&
+    validImages.length <= 5;
 
   function setTitle(title: string) {
     setForm((current) => ({ ...current, title, slug: slugEdited ? current.slug : slugifyTitle(title) }));
@@ -164,11 +261,49 @@ export function BlogForm({ blogId }: BlogFormProps) {
   function payload() {
     return {
       ...form,
+      title: limitText(form.title, 180),
+      shortDescription: limitText(form.shortDescription, 300),
+      category: limitText(form.category, 80),
+      referenceCtaText: limitText(form.referenceCtaText, 80),
+      referenceCtaUrl: optionalUrl(form.referenceCtaUrl),
+      seoTitle: limitText(form.seoTitle, 180),
+      seoDescription: limitText(form.seoDescription, 300),
+      canonicalUrl: optionalUrl(form.canonicalUrl),
+      authorName: limitText(form.authorName, 100),
       publishedAt: form.publishedAt ? new Date(form.publishedAt).toISOString() : "",
-      images: form.images.filter((image) => image.imageUrl.trim()).map((image, index) => ({ ...image, order: index })),
-      videos: form.videos.filter((video) => video.videoUrl.trim()).map((video, index) => ({ ...video, order: index })),
-      attachments: form.attachments.filter((attachment) => attachment.fileUrl.trim()).map((attachment, index) => ({ ...attachment, order: index })),
-      sections: form.sections.filter((section) => section.heading.trim() || section.content.trim()).map((section, index) => ({ ...section, order: index }))
+      images: form.images.filter((image) => image.imageUrl.trim()).map((image, index) => ({
+        imageUrl: image.imageUrl,
+        title: limitText(image.title, 120),
+        caption: limitText(image.caption, 240),
+        altText: limitText(image.altText, 160),
+        order: index
+      })),
+      videos: form.videos.filter((video) => video.videoUrl.trim()).map((video, index) => ({
+        videoUrl: video.videoUrl,
+        title: limitText(video.title, 120),
+        caption: limitText(video.caption, 240),
+        order: index
+      })),
+      attachments: form.attachments.filter((attachment) => attachment.fileUrl.trim()).map((attachment, index) => ({
+        fileUrl: attachment.fileUrl,
+        title: limitText(attachment.title, 140),
+        contentType: limitText(attachment.contentType, 80),
+        order: index
+      })),
+      sections: form.sections
+        .filter((section) => section.heading.trim().length >= 2 && section.content.trim().length >= 1)
+        .map((section, index) => ({
+          heading: limitText(section.heading, 180),
+          content: section.content.trim(),
+          imageUrl: section.imageUrl,
+          videos: section.videos.filter((video) => video.videoUrl.trim()).map((video, videoIndex) => ({
+            videoUrl: video.videoUrl,
+            title: limitText(video.title, 120),
+            caption: limitText(video.caption, 240),
+            order: videoIndex
+          })),
+          order: index
+        }))
     };
   }
 
@@ -195,7 +330,7 @@ export function BlogForm({ blogId }: BlogFormProps) {
     const imageUrl = await fileToDataUrl(file);
     setForm((current) => ({
       ...current,
-      images: current.images.map((image, imageIndex) => (imageIndex === index ? { ...image, imageUrl } : image))
+      images: current.images.map((image, imageIndex) => (imageIndex === index ? { ...image, imageUrl, title: image.title || file.name.replace(/\.[^.]+$/, "") } : image))
     }));
   }
 
@@ -204,7 +339,16 @@ export function BlogForm({ blogId }: BlogFormProps) {
     const videoUrl = await fileToDataUrl(file);
     setForm((current) => ({
       ...current,
-      videos: current.videos.map((video, videoIndex) => (videoIndex === index ? { ...video, videoUrl, title: video.title || file.name } : video))
+      videos: current.videos.map((video, videoIndex) => (videoIndex === index ? { ...video, videoUrl, title: video.title || file.name.replace(/\.[^.]+$/, "") } : video))
+    }));
+  }
+
+  async function attachSectionImage(index: number, file?: File) {
+    if (!file) return;
+    const imageUrl = await fileToDataUrl(file);
+    setForm((current) => ({
+      ...current,
+      sections: current.sections.map((section, sectionIndex) => (sectionIndex === index ? { ...section, imageUrl } : section))
     }));
   }
 
@@ -218,7 +362,7 @@ export function BlogForm({ blogId }: BlogFormProps) {
           ? {
               ...section,
               videos: section.videos.map((video, currentVideoIndex) =>
-                currentVideoIndex === videoIndex ? { ...video, videoUrl, title: video.title || file.name } : video
+                currentVideoIndex === videoIndex ? { ...video, videoUrl, title: video.title || file.name.replace(/\.[^.]+$/, "") } : video
               )
             }
           : section
@@ -304,7 +448,7 @@ export function BlogForm({ blogId }: BlogFormProps) {
                 <h2 className="font-semibold">Images</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Minimum 2, maximum 5.</p>
               </div>
-              <Button type="button" variant="secondary" disabled={form.images.length >= 5} onClick={() => setForm((current) => ({ ...current, images: [...current.images, { imageUrl: "", altText: "", order: current.images.length }] }))}>
+              <Button type="button" variant="secondary" disabled={form.images.length >= 5} onClick={() => setForm((current) => ({ ...current, images: [...current.images, { imageUrl: "", title: "", caption: "", altText: "", order: current.images.length }] }))}>
                 <Plus className="h-4 w-4" />
                 Add
               </Button>
@@ -312,22 +456,19 @@ export function BlogForm({ blogId }: BlogFormProps) {
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {form.images.map((image, index) => (
                 <div key={index} className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
-                  <div className="aspect-[16/9] overflow-hidden rounded-md bg-slate-100 dark:bg-white/10">
-                    {image.imageUrl ? <img src={image.imageUrl} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-slate-400"><ImagePlus className="h-8 w-8" /></div>}
-                  </div>
+                  <MediaPicker
+                    kind="image"
+                    value={image.imageUrl}
+                    title={image.title}
+                    caption={image.caption}
+                    altText={image.altText}
+                    onFile={(file) => void attachImage(index, file)}
+                    onClear={() => setForm((current) => ({ ...current, images: current.images.map((item, itemIndex) => (itemIndex === index ? { ...item, imageUrl: "" } : item)) }))}
+                    onTitle={(value) => setForm((current) => ({ ...current, images: current.images.map((item, itemIndex) => (itemIndex === index ? { ...item, title: value } : item)) }))}
+                    onCaption={(value) => setForm((current) => ({ ...current, images: current.images.map((item, itemIndex) => (itemIndex === index ? { ...item, caption: value } : item)) }))}
+                    onAltText={(value) => setForm((current) => ({ ...current, images: current.images.map((item, itemIndex) => (itemIndex === index ? { ...item, altText: value } : item)) }))}
+                  />
                   <div className="mt-3 grid gap-2">
-                    <Input value={image.imageUrl} onChange={(event) => setForm((current) => ({ ...current, images: current.images.map((item, itemIndex) => (itemIndex === index ? { ...item, imageUrl: event.target.value } : item)) }))} placeholder="Image URL or base64" />
-                    <Input value={image.altText} onChange={(event) => setForm((current) => ({ ...current, images: current.images.map((item, itemIndex) => (itemIndex === index ? { ...item, altText: event.target.value } : item)) }))} placeholder="Alt text" />
-                    <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-white transition hover:bg-blue-500">
-                      <ImagePlus className="h-4 w-4" />
-                      {image.imageUrl ? "Change Image" : "Upload Image"}
-                      <input type="file" accept="image/*" onChange={(event) => void attachImage(index, event.target.files?.[0])} className="hidden" />
-                    </label>
-                    {image.imageUrl ? (
-                      <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, images: current.images.map((item, itemIndex) => (itemIndex === index ? { ...item, imageUrl: "" } : item)) }))}>
-                        Deselect
-                      </Button>
-                    ) : null}
                     <Button type="button" variant="danger" disabled={form.images.length <= 2} onClick={() => setForm((current) => ({ ...current, images: current.images.filter((_, itemIndex) => itemIndex !== index) }))}>
                       <Trash2 className="h-4 w-4" />
                       Remove
@@ -351,7 +492,13 @@ export function BlogForm({ blogId }: BlogFormProps) {
                 <div key={index} className="grid gap-3 rounded-lg border border-slate-200 p-4 dark:border-white/10">
                   <Input value={section.heading} onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, heading: event.target.value } : item)) }))} placeholder="Heading or question" />
                   <textarea className="min-h-28 resize-none rounded-md border border-slate-300/30 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-white/10" value={section.content} onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, content: event.target.value } : item)) }))} placeholder="Section content" />
-                  <Input value={section.imageUrl} onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, imageUrl: event.target.value } : item)) }))} placeholder="Optional section image URL" />
+                  <MediaPicker
+                    kind="image"
+                    value={section.imageUrl}
+                    compact
+                    onFile={(file) => void attachSectionImage(index, file)}
+                    onClear={() => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, imageUrl: "" } : item)) }))}
+                  />
                   <div className="rounded-md bg-slate-50 p-3 dark:bg-white/10">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold">Section videos</p>
@@ -362,7 +509,7 @@ export function BlogForm({ blogId }: BlogFormProps) {
                         onClick={() => setForm((current) => ({
                           ...current,
                           sections: current.sections.map((item, itemIndex) =>
-                            itemIndex === index ? { ...item, videos: [...item.videos, { videoUrl: "", title: "", order: item.videos.length }] } : item
+                            itemIndex === index ? { ...item, videos: [...item.videos, { videoUrl: "", title: "", caption: "", order: item.videos.length }] } : item
                           )
                         }))}
                       >
@@ -374,9 +521,17 @@ export function BlogForm({ blogId }: BlogFormProps) {
                       {section.videos.length === 0 ? <p className="text-xs text-slate-500 dark:text-slate-400">No section videos.</p> : null}
                       {section.videos.map((video, videoIndex) => (
                         <div key={videoIndex} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950/30">
-                          <Input value={video.title} onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, videos: item.videos.map((currentVideo, currentVideoIndex) => currentVideoIndex === videoIndex ? { ...currentVideo, title: event.target.value } : currentVideo) } : item) }))} placeholder="Video title" />
-                          <Input value={video.videoUrl} onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, videos: item.videos.map((currentVideo, currentVideoIndex) => currentVideoIndex === videoIndex ? { ...currentVideo, videoUrl: event.target.value } : currentVideo) } : item) }))} placeholder="Video URL or uploaded file" />
-                          <input type="file" accept="video/*" onChange={(event) => void attachSectionVideo(index, videoIndex, event.target.files?.[0])} className="text-xs" />
+                          <MediaPicker
+                            kind="video"
+                            value={video.videoUrl}
+                            title={video.title}
+                            caption={video.caption}
+                            compact
+                            onFile={(file) => void attachSectionVideo(index, videoIndex, file)}
+                            onClear={() => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, videos: item.videos.map((currentVideo, currentVideoIndex) => currentVideoIndex === videoIndex ? { ...currentVideo, videoUrl: "" } : currentVideo) } : item) }))}
+                            onTitle={(value) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, videos: item.videos.map((currentVideo, currentVideoIndex) => currentVideoIndex === videoIndex ? { ...currentVideo, title: value } : currentVideo) } : item) }))}
+                            onCaption={(value) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, videos: item.videos.map((currentVideo, currentVideoIndex) => currentVideoIndex === videoIndex ? { ...currentVideo, caption: value } : currentVideo) } : item) }))}
+                          />
                           <Button type="button" variant="danger" onClick={() => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, videos: item.videos.filter((_, currentVideoIndex) => currentVideoIndex !== videoIndex) } : item) }))}>Remove Video</Button>
                         </div>
                       ))}
@@ -414,7 +569,7 @@ export function BlogForm({ blogId }: BlogFormProps) {
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-semibold">Videos</h2>
-              <Button type="button" variant="secondary" disabled={form.videos.length >= 2} onClick={() => setForm((current) => ({ ...current, videos: [...current.videos, { videoUrl: "", title: "", order: current.videos.length }] }))}>
+              <Button type="button" variant="secondary" disabled={form.videos.length >= 2} onClick={() => setForm((current) => ({ ...current, videos: [...current.videos, { videoUrl: "", title: "", caption: "", order: current.videos.length }] }))}>
                 <Plus className="h-4 w-4" />
                 Add
               </Button>
@@ -423,9 +578,17 @@ export function BlogForm({ blogId }: BlogFormProps) {
               {form.videos.length === 0 ? <p className="text-sm text-slate-500 dark:text-slate-400">No videos added.</p> : null}
               {form.videos.map((video, index) => (
                 <div key={index} className="grid gap-2 rounded-md bg-slate-50 p-3 dark:bg-white/10">
-                  <Input value={video.videoUrl} onChange={(event) => setForm((current) => ({ ...current, videos: current.videos.map((item, itemIndex) => (itemIndex === index ? { ...item, videoUrl: event.target.value } : item)) }))} placeholder="Video URL" />
-                  <Input value={video.title} onChange={(event) => setForm((current) => ({ ...current, videos: current.videos.map((item, itemIndex) => (itemIndex === index ? { ...item, title: event.target.value } : item)) }))} placeholder="Video title" />
-                  <input type="file" accept="video/*" onChange={(event) => void attachVideo(index, event.target.files?.[0])} className="text-xs" />
+                  <MediaPicker
+                    kind="video"
+                    value={video.videoUrl}
+                    title={video.title}
+                    caption={video.caption}
+                    compact
+                    onFile={(file) => void attachVideo(index, file)}
+                    onClear={() => setForm((current) => ({ ...current, videos: current.videos.map((item, itemIndex) => (itemIndex === index ? { ...item, videoUrl: "" } : item)) }))}
+                    onTitle={(value) => setForm((current) => ({ ...current, videos: current.videos.map((item, itemIndex) => (itemIndex === index ? { ...item, title: value } : item)) }))}
+                    onCaption={(value) => setForm((current) => ({ ...current, videos: current.videos.map((item, itemIndex) => (itemIndex === index ? { ...item, caption: value } : item)) }))}
+                  />
                   <Button type="button" variant="danger" onClick={() => setForm((current) => ({ ...current, videos: current.videos.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</Button>
                 </div>
               ))}

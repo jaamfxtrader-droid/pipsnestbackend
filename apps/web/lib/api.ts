@@ -4,6 +4,15 @@ type ApiOptions = RequestInit & {
   token?: string;
 };
 
+function formatIssues(issues: unknown) {
+  if (!issues || typeof issues !== "object") return "";
+  const fieldErrors = (issues as { fieldErrors?: Record<string, string[]> }).fieldErrors;
+  if (!fieldErrors) return "";
+  return Object.entries(fieldErrors)
+    .flatMap(([field, messages]) => (messages ?? []).map((message) => `${field}: ${message}`))
+    .join("; ");
+}
+
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
@@ -17,7 +26,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
 
   const payload = await response.json();
   if (!response.ok || payload.success === false) {
-    throw new Error(payload.message ?? "Request failed");
+    const issueMessage = formatIssues(payload.issues);
+    throw new Error(issueMessage || payload.message || "Request failed");
   }
   return payload.data as T;
 }

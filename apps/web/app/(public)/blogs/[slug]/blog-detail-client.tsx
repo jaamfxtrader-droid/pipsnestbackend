@@ -264,7 +264,17 @@ export function BlogDetailClient({ blog }: { blog: Blog }) {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
           <article className="min-w-0">
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-              {blog.images[0] ? <img src={blog.images[0].imageUrl} alt={blog.images[0].altText ?? blog.title} className="max-h-[32rem] w-full object-cover" /> : null}
+              {blog.images[0] ? (
+                <figure>
+                  <img src={blog.images[0].imageUrl} alt={blog.images[0].altText ?? blog.title} className="max-h-[32rem] w-full object-cover" />
+                  {(blog.images[0].title || blog.images[0].caption) ? (
+                    <figcaption className="px-5 py-3 text-sm text-slate-500 dark:text-slate-400">
+                      {blog.images[0].title ? <span className="font-semibold text-slate-700 dark:text-slate-200">{blog.images[0].title}</span> : null}
+                      {blog.images[0].caption ? <span className="block">{blog.images[0].caption}</span> : null}
+                    </figcaption>
+                  ) : null}
+                </figure>
+              ) : null}
               <div className="p-5 sm:p-8">
                 {blog.category ? <div className="text-xs font-black uppercase text-primary">{blog.category}</div> : null}
                 <h1 className="mt-3 text-3xl font-black leading-tight sm:text-5xl">{blog.title}</h1>
@@ -289,7 +299,17 @@ export function BlogDetailClient({ blog }: { blog: Blog }) {
 
             {blog.images.length > 1 ? (
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {blog.images.slice(1).map((image) => <img key={image.id ?? image.imageUrl} src={image.imageUrl} alt={image.altText ?? ""} className="aspect-[16/10] w-full rounded-lg object-cover" />)}
+                {blog.images.slice(1).map((image) => (
+                  <figure key={image.id ?? image.imageUrl} className="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-white/[0.03]">
+                    <img src={image.imageUrl} alt={image.altText ?? ""} className="aspect-[16/10] w-full object-cover" />
+                    {(image.title || image.caption) ? (
+                      <figcaption className="p-3 text-sm text-slate-500 dark:text-slate-400">
+                        {image.title ? <span className="font-semibold text-slate-700 dark:text-slate-200">{image.title}</span> : null}
+                        {image.caption ? <span className="block">{image.caption}</span> : null}
+                      </figcaption>
+                    ) : null}
+                  </figure>
+                ))}
               </div>
             ) : null}
 
@@ -305,6 +325,7 @@ export function BlogDetailClient({ blog }: { blog: Blog }) {
                         <div key={video.id ?? video.videoUrl} className="grid gap-2">
                           {video.title ? <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">{video.title}</h3> : null}
                           <CanvasVideoPlayer src={video.videoUrl} title={video.title ?? section.heading} posterSrc={section.imageUrl || blog.images[0]?.imageUrl} />
+                          {video.caption ? <p className="text-sm text-slate-500 dark:text-slate-400">{video.caption}</p> : null}
                         </div>
                       ))}
                     </div>
@@ -321,6 +342,7 @@ export function BlogDetailClient({ blog }: { blog: Blog }) {
                     <div key={video.id ?? video.videoUrl} className="grid gap-2">
                       {video.title ? <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">{video.title}</h3> : null}
                       <CanvasVideoPlayer src={video.videoUrl} title={video.title ?? blog.title} posterSrc={blog.images[0]?.imageUrl} />
+                      {video.caption ? <p className="text-sm text-slate-500 dark:text-slate-400">{video.caption}</p> : null}
                     </div>
                   ))}
                 </div>

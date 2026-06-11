@@ -274,6 +274,8 @@ const commaList = z
 
 export const blogImageSchema = z.object({
   imageUrl: z.string().min(1, "Image URL is required").max(8_000_000, "Image is too large"),
+  title: z.string().trim().max(120, "Image title is too long").optional().or(z.literal("")),
+  caption: z.string().trim().max(240, "Image caption is too long").optional().or(z.literal("")),
   altText: z.string().trim().max(160, "Alt text is too long").optional().or(z.literal("")),
   order: z.coerce.number().int().min(0).default(0)
 });
@@ -281,6 +283,7 @@ export const blogImageSchema = z.object({
 export const blogVideoSchema = z.object({
   videoUrl: z.string().trim().min(1, "Video is required").max(80_000_000, "Video is too large"),
   title: z.string().trim().max(120, "Video title is too long").optional().or(z.literal("")),
+  caption: z.string().trim().max(240, "Video caption is too long").optional().or(z.literal("")),
   order: z.coerce.number().int().min(0).default(0)
 });
 

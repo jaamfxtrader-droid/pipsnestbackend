@@ -161,15 +161,14 @@ export async function uploadBlogImage(value: string | null | undefined) {
   if (!DATA_IMAGE_PATTERN.test(value)) return value;
 
   if (!isCloudinaryConfigured()) {
-    console.warn("Cloudinary is not configured. Blog image will be stored without Cloudinary upload.");
-    return value;
+    throw new Error("Cloudinary is not configured. Blog images must be uploaded to Cloudinary.");
   }
 
   try {
     return await uploadDataFile(value, "blogs/images", "image");
   } catch (error) {
     console.error(`Blog image upload failed: ${getErrorMessage(error)}`);
-    return value;
+    throw error;
   }
 }
 
@@ -178,15 +177,14 @@ export async function uploadBlogMedia(value: string | null | undefined) {
   if (!DATA_FILE_PATTERN.test(value)) return value;
 
   if (!isCloudinaryConfigured()) {
-    console.warn("Cloudinary is not configured. Blog media will be stored without Cloudinary upload.");
-    return value;
+    throw new Error("Cloudinary is not configured. Blog media must be uploaded to Cloudinary.");
   }
 
   try {
     return await uploadDataFile(value, "blogs/media", "auto");
   } catch (error) {
     console.error(`Blog media upload failed: ${getErrorMessage(error)}`);
-    return value;
+    throw error;
   }
 }
 

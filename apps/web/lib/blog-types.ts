@@ -3,6 +3,8 @@ export type BlogStatus = "DRAFT" | "PUBLISHED";
 export type BlogImage = {
   id?: string;
   imageUrl: string;
+  title?: string | null;
+  caption?: string | null;
   altText?: string | null;
   order: number;
 };
@@ -11,6 +13,7 @@ export type BlogVideo = {
   id?: string;
   videoUrl: string;
   title?: string | null;
+  caption?: string | null;
   order: number;
 };
 

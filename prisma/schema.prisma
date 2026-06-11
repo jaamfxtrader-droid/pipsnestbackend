@@ -584,6 +584,8 @@ model BlogImage {
   id       String @id @default(cuid())
   blogId   String
   imageUrl String
+  title    String?
+  caption  String?
   altText  String?
   order    Int    @default(0)
   blog     Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
@@ -596,6 +598,7 @@ model BlogVideo {
   blogId   String
   videoUrl String
   title    String?
+  caption  String?
   order    Int    @default(0)
   blog     Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
 
@@ -632,6 +635,7 @@ model BlogSectionVideo {
   sectionId String
   videoUrl  String
   title     String?
+  caption   String?
   order     Int         @default(0)
   section   BlogSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 

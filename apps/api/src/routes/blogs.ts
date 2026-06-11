@@ -355,31 +355,34 @@ adminBlogRouter.put(
     const input = await prepareBlogInput(blogSchema.parse(req.body));
     input.slug = await uniqueSlug(input.slug || input.title, req.params.id);
 
-    const blog = await prisma.$transaction(async (tx) => {
-      await tx.blogImage.deleteMany({ where: { blogId: req.params.id } });
-      await tx.blogVideo.deleteMany({ where: { blogId: req.params.id } });
-      await tx.blogAttachment.deleteMany({ where: { blogId: req.params.id } });
-      await tx.blogSection.deleteMany({ where: { blogId: req.params.id } });
-      return tx.blog.update({
-        where: { id: req.params.id },
-        data: {
-          ...blogData(input),
-          images: { create: input.images.map((image, index) => ({ ...image, order: image.order ?? index })) },
-          videos: { create: input.videos.map((video, index) => ({ ...video, order: video.order ?? index })) },
-          attachments: { create: input.attachments.map((attachment, index) => ({ ...attachment, order: attachment.order ?? index })) },
-          sections: {
-            create: input.sections.map((section, index) => ({
-              heading: section.heading,
-              content: section.content,
-              imageUrl: section.imageUrl || null,
-              order: section.order ?? index,
-              videos: { create: section.videos.map((video, videoIndex) => ({ ...video, order: video.order ?? videoIndex })) }
-            }))
-          }
-        },
-        include: blogInclude
-      });
-    });
+    const blog = await prisma.$transaction(
+      async (tx) => {
+        await tx.blogImage.deleteMany({ where: { blogId: req.params.id } });
+        await tx.blogVideo.deleteMany({ where: { blogId: req.params.id } });
+        await tx.blogAttachment.deleteMany({ where: { blogId: req.params.id } });
+        await tx.blogSection.deleteMany({ where: { blogId: req.params.id } });
+        return tx.blog.update({
+          where: { id: req.params.id },
+          data: {
+            ...blogData(input),
+            images: { create: input.images.map((image, index) => ({ ...image, order: image.order ?? index })) },
+            videos: { create: input.videos.map((video, index) => ({ ...video, order: video.order ?? index })) },
+            attachments: { create: input.attachments.map((attachment, index) => ({ ...attachment, order: attachment.order ?? index })) },
+            sections: {
+              create: input.sections.map((section, index) => ({
+                heading: section.heading,
+                content: section.content,
+                imageUrl: section.imageUrl || null,
+                order: section.order ?? index,
+                videos: { create: section.videos.map((video, videoIndex) => ({ ...video, order: video.order ?? videoIndex })) }
+              }))
+            }
+          },
+          include: blogInclude
+        });
+      },
+      { maxWait: 10_000, timeout: 30_000 }
+    );
 
     sendSuccess(res, { blog: serializeBlog(blog) });
   })
