@@ -13,7 +13,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
-import { adminPagePermissionOptions } from "@/lib/admin-permissions";
+import { adminPagePermissionOptions, expandAdminPermissions, toggleAdminPermission } from "@/lib/admin-permissions";
 import { cmsPageDrafts } from "@/lib/cms";
 import { useTranslation } from "@/lib/use-translation";
 import { getStoredAuthToken, isRememberedAuth, useAuthStore } from "@/store/auth-store";
@@ -210,18 +210,14 @@ export default function SettingsPage() {
   function toggleEditPermission(permission: string) {
     setEditForm((current) => ({
       ...current,
-      permissions: current.permissions.includes(permission)
-        ? current.permissions.filter((item) => item !== permission)
-        : [...current.permissions, permission]
+      permissions: toggleAdminPermission(current.permissions, permission)
     }));
   }
 
   function toggleRolePermission(permission: string) {
     setRoleForm((current) => ({
       ...current,
-      permissions: current.permissions.includes(permission)
-        ? current.permissions.filter((item) => item !== permission)
-        : [...current.permissions, permission]
+      permissions: toggleAdminPermission(current.permissions, permission)
     }));
   }
 
@@ -344,7 +340,7 @@ export default function SettingsPage() {
           avatarUrl: editForm.avatarUrl,
           password: editForm.password || undefined,
           role: editForm.role,
-          permissions: editForm.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : editForm.permissions
+          permissions: editForm.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : expandAdminPermissions(editForm.permissions)
         })
       });
 
@@ -408,7 +404,7 @@ export default function SettingsPage() {
         token: authToken,
         body: JSON.stringify({
           name: roleForm.name.trim(),
-          permissions: roleForm.permissions
+          permissions: expandAdminPermissions(roleForm.permissions)
         })
       });
       setRoleTemplates((current) => [...current, data.role]);
@@ -716,7 +712,7 @@ export default function SettingsPage() {
                       type="button"
                       variant="secondary"
                       className="h-8 rounded-md px-3"
-                      onClick={() => setEditForm((current) => ({ ...current, permissions: template.permissions }))}
+                      onClick={() => setEditForm((current) => ({ ...current, permissions: expandAdminPermissions(template.permissions) }))}
                     >
                       {template.name}
                     </Button>

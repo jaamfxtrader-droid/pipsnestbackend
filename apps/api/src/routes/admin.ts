@@ -111,6 +111,16 @@ const defaultAdminRoleTemplates = [
   { name: "Support Pages", permissions: ["page:contact", "page:faq"] }
 ];
 
+const adminPermissionChildren: Record<string, string[]> = {
+  "admin:blogs": ["admin:blogs/new", "admin:blogs/edit"]
+};
+
+function expandAdminPermissions(permissions: string[]) {
+  return Array.from(
+    new Set(permissions.flatMap((permission) => [permission, ...(adminPermissionChildren[permission] ?? [])]))
+  );
+}
+
 async function ensureDefaultAdminRoleTemplates() {
   await Promise.all(
     defaultAdminRoleTemplates.map((role) =>
@@ -574,7 +584,7 @@ adminRouter.post(
     const role = await prisma.adminRoleTemplate.create({
       data: {
         name: req.body.name,
-        permissions: req.body.permissions,
+        permissions: expandAdminPermissions(req.body.permissions),
         locked: false
       }
     });
@@ -644,7 +654,7 @@ adminRouter.post(
         referralCode: makeReferralCode(req.body.username),
         admin: {
           create: {
-            permissions: req.body.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : req.body.permissions
+            permissions: req.body.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : expandAdminPermissions(req.body.permissions)
           }
         }
       },
@@ -683,10 +693,11 @@ adminRouter.put(
     });
 
     if (req.body.role === "ADMIN" || req.body.role === "SUPER_ADMIN" || permissions) {
+      const normalizedPermissions = permissions ? expandAdminPermissions(permissions) : undefined;
       await prisma.admin.upsert({
         where: { userId: user.id },
-        update: { permissions: req.body.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : permissions ?? user.admin?.permissions ?? [] },
-        create: { userId: user.id, permissions: req.body.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : permissions ?? [] }
+        update: { permissions: req.body.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : normalizedPermissions ?? user.admin?.permissions ?? [] },
+        create: { userId: user.id, permissions: req.body.role === "SUPER_ADMIN" ? ["admin:all", "cms:all"] : normalizedPermissions ?? [] }
       });
     }
 
