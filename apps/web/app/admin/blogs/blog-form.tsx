@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileVideo, ImagePlus, Loader2, Plus, Save, Trash2, UploadCloud, X } from "lucide-react";
+import { RichTextEditor } from "@/components/blog/rich-text-editor";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,7 @@ type BlogEditorForm = {
   images: Array<{ imageUrl: string; title: string; caption: string; altText: string; order: number }>;
   videos: Array<{ videoUrl: string; title: string; caption: string; order: number }>;
   attachments: Array<{ fileUrl: string; title: string; contentType: string; order: number }>;
-  sections: Array<{ heading: string; content: string; imageUrl: string; videos: Array<{ videoUrl: string; title: string; caption: string; order: number }>; order: number }>;
+  sections: Array<{ heading: string; content: string; images: Array<{ imageUrl: string; order: number }>; imagePlacement: "top" | "middle" | "bottom"; videos: Array<{ videoUrl: string; title: string; caption: string; order: number }>; order: number }>;
 };
 
 const emptyForm: BlogEditorForm = {
@@ -65,7 +66,7 @@ const emptyForm: BlogEditorForm = {
   ],
   videos: [] as Array<{ videoUrl: string; title: string; caption: string; order: number }>,
   attachments: [] as Array<{ fileUrl: string; title: string; contentType: string; order: number }>,
-  sections: [{ heading: "", content: "", imageUrl: "", videos: [], order: 0 }]
+  sections: [{ heading: "", content: "", images: [], imagePlacement: "middle", videos: [], order: 0 }]
 };
 
 function slugifyTitle(value: string) {
@@ -91,6 +92,19 @@ function optionalUrl(value: string) {
     return new URL(trimmed).toString();
   } catch {
     return "";
+  }
+}
+
+function sectionMedia(value?: string | null) {
+  if (!value) return { images: [] as Array<{ imageUrl: string; order: number }>, imagePlacement: "middle" as const };
+  try {
+    const parsed = JSON.parse(value) as { placement?: "top" | "middle" | "bottom"; images?: Array<{ imageUrl: string; order?: number }> };
+    return {
+      images: (parsed.images ?? []).slice(0, 3).map((image, index) => ({ imageUrl: image.imageUrl, order: image.order ?? index })),
+      imagePlacement: parsed.placement ?? "middle"
+    };
+  } catch {
+    return { images: [{ imageUrl: value, order: 0 }], imagePlacement: "middle" as const };
   }
 }
 
@@ -223,14 +237,18 @@ export function BlogForm({ blogId }: BlogFormProps) {
           videos: blog.videos.map((video, index) => ({ videoUrl: video.videoUrl, title: video.title ?? "", caption: video.caption ?? "", order: video.order ?? index })),
           attachments: blog.attachments.map((attachment, index) => ({ fileUrl: attachment.fileUrl, title: attachment.title ?? "", contentType: attachment.contentType ?? "", order: attachment.order ?? index })),
           sections: blog.sections.length
-            ? blog.sections.map((section, index) => ({
-                heading: section.heading,
-                content: section.content,
-                imageUrl: section.imageUrl ?? "",
-                videos: (section.videos ?? []).map((video, videoIndex) => ({ videoUrl: video.videoUrl, title: video.title ?? "", caption: video.caption ?? "", order: video.order ?? videoIndex })),
-                order: section.order ?? index
-              }))
-            : [{ heading: "", content: "", imageUrl: "", videos: [], order: 0 }]
+            ? blog.sections.map((section, index) => {
+                const media = sectionMedia(section.imageUrl);
+                return {
+                  heading: section.heading,
+                  content: section.content,
+                  images: section.images?.length ? section.images.map((image, imageIndex) => ({ imageUrl: image.imageUrl, order: image.order ?? imageIndex })) : media.images,
+                  imagePlacement: section.imagePlacement ?? media.imagePlacement,
+                  videos: (section.videos ?? []).map((video, videoIndex) => ({ videoUrl: video.videoUrl, title: video.title ?? "", caption: video.caption ?? "", order: video.order ?? videoIndex })),
+                  order: section.order ?? index
+                };
+              })
+            : [{ heading: "", content: "", images: [], imagePlacement: "middle", videos: [], order: 0 }]
         });
       })
       .catch((error) => {
@@ -295,7 +313,9 @@ export function BlogForm({ blogId }: BlogFormProps) {
         .map((section, index) => ({
           heading: limitText(section.heading, 180),
           content: section.content.trim(),
-          imageUrl: section.imageUrl,
+          imageUrl: section.images[0]?.imageUrl ?? "",
+          images: section.images.filter((image) => image.imageUrl.trim()).slice(0, 3).map((image, imageIndex) => ({ imageUrl: image.imageUrl, order: imageIndex })),
+          imagePlacement: section.imagePlacement,
           videos: section.videos.filter((video) => video.videoUrl.trim()).map((video, videoIndex) => ({
             videoUrl: video.videoUrl,
             title: limitText(video.title, 120),
@@ -343,12 +363,22 @@ export function BlogForm({ blogId }: BlogFormProps) {
     }));
   }
 
-  async function attachSectionImage(index: number, file?: File) {
+  async function attachSectionImage(index: number, imageIndex: number, file?: File) {
     if (!file) return;
     const imageUrl = await fileToDataUrl(file);
     setForm((current) => ({
       ...current,
-      sections: current.sections.map((section, sectionIndex) => (sectionIndex === index ? { ...section, imageUrl } : section))
+      sections: current.sections.map((section, sectionIndex) =>
+        sectionIndex === index
+          ? {
+              ...section,
+              images: [0, 1, 2]
+                .map((slot) => (slot === imageIndex ? { imageUrl, order: slot } : section.images[slot]))
+                .filter((image): image is { imageUrl: string; order: number } => Boolean(image?.imageUrl))
+                .map((image, nextIndex) => ({ ...image, order: nextIndex }))
+            }
+          : section
+      )
     }));
   }
 
@@ -437,7 +467,12 @@ export function BlogForm({ blogId }: BlogFormProps) {
               </label>
               <label className="grid gap-2 text-sm font-semibold">
                 Full formatted content
-                <textarea className="min-h-56 resize-none rounded-md border border-slate-300/30 bg-white px-3 py-2 text-sm leading-6 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-white/10" value={form.content} onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))} />
+                <RichTextEditor
+                  value={form.content}
+                  onChange={(content) => setForm((current) => ({ ...current, content }))}
+                  minHeight="min-h-64"
+                  placeholder="Write content. Use toolbar for lists, links, bold, underline, strike, italic, and capitalization."
+                />
               </label>
             </div>
           </div>
@@ -482,7 +517,7 @@ export function BlogForm({ blogId }: BlogFormProps) {
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-semibold">Sections / Sidebar Headings</h2>
-              <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, sections: [...current.sections, { heading: "", content: "", imageUrl: "", videos: [], order: current.sections.length }] }))}>
+              <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, sections: [...current.sections, { heading: "", content: "", images: [], imagePlacement: "middle", videos: [], order: current.sections.length }] }))}>
                 <Plus className="h-4 w-4" />
                 Add Section
               </Button>
@@ -491,14 +526,45 @@ export function BlogForm({ blogId }: BlogFormProps) {
               {form.sections.map((section, index) => (
                 <div key={index} className="grid gap-3 rounded-lg border border-slate-200 p-4 dark:border-white/10">
                   <Input value={section.heading} onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, heading: event.target.value } : item)) }))} placeholder="Heading or question" />
-                  <textarea className="min-h-28 resize-none rounded-md border border-slate-300/30 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 dark:bg-white/10" value={section.content} onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, content: event.target.value } : item)) }))} placeholder="Section content" />
-                  <MediaPicker
-                    kind="image"
-                    value={section.imageUrl}
-                    compact
-                    onFile={(file) => void attachSectionImage(index, file)}
-                    onClear={() => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, imageUrl: "" } : item)) }))}
+                  <RichTextEditor
+                    value={section.content}
+                    onChange={(content) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => (itemIndex === index ? { ...item, content } : item)) }))}
+                    minHeight="min-h-36"
+                    placeholder="Section content"
                   />
+                  <div className="grid gap-3 rounded-md bg-slate-50 p-3 dark:bg-white/10">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Section images</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Up to 3 images. Same placement becomes a fading carousel.</p>
+                      </div>
+                      <select
+                        value={section.imagePlacement}
+                        onChange={(event) => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, imagePlacement: event.target.value as "top" | "middle" | "bottom" } : item) }))}
+                        className="h-10 rounded-md border border-slate-300/30 bg-white px-3 text-sm font-semibold outline-none focus:border-primary dark:bg-slate-950/40"
+                      >
+                        <option value="top">Top</option>
+                        <option value="middle">Middle</option>
+                        <option value="bottom">Bottom</option>
+                      </select>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {[0, 1, 2].map((imageIndex) => {
+                        const image = section.images[imageIndex];
+                        return (
+                          <div key={imageIndex} className="grid gap-2 rounded-md border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950/30">
+                            <MediaPicker
+                              kind="image"
+                              value={image?.imageUrl ?? ""}
+                              compact
+                              onFile={(file) => void attachSectionImage(index, imageIndex, file)}
+                              onClear={() => setForm((current) => ({ ...current, sections: current.sections.map((item, itemIndex) => itemIndex === index ? { ...item, images: item.images.filter((_, currentImageIndex) => currentImageIndex !== imageIndex).map((currentImage, nextIndex) => ({ ...currentImage, order: nextIndex })) } : item) }))}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="rounded-md bg-slate-50 p-3 dark:bg-white/10">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold">Section videos</p>

@@ -30,6 +30,8 @@ export type BlogSection = {
   heading: string;
   content: string;
   imageUrl?: string | null;
+  images?: Array<{ imageUrl: string; order: number }>;
+  imagePlacement?: "top" | "middle" | "bottom";
   videos: BlogVideo[];
   order: number;
 };

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Download, ExternalLink, Eye, FileText, Heart, Home, ImagePlus, Loader2, LogIn, MessageCircle, Reply, Send, ThumbsDown, ThumbsUp, Trash2, UserPlus, X } from "lucide-react";
 import { CanvasVideoPlayer } from "@/components/blog/canvas-video-player";
+import { RichTextRenderer } from "@/components/blog/rich-text-renderer";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch, apiWebSocketUrl } from "@/lib/api";
@@ -17,6 +18,64 @@ function sectionId(index: number) {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function sectionMedia(value?: string | null, images?: Array<{ imageUrl: string; order: number }>, placement?: "top" | "middle" | "bottom") {
+  if (images?.length) return { images, placement: placement ?? "middle" };
+  if (!value) return { images: [] as Array<{ imageUrl: string; order: number }>, placement: "middle" as const };
+  try {
+    const parsed = JSON.parse(value) as { placement?: "top" | "middle" | "bottom"; images?: Array<{ imageUrl: string; order?: number }> };
+    return {
+      images: (parsed.images ?? []).map((image, index) => ({ imageUrl: image.imageUrl, order: image.order ?? index })),
+      placement: parsed.placement ?? "middle"
+    };
+  } catch {
+    return { images: [{ imageUrl: value, order: 0 }], placement: "middle" as const };
+  }
+}
+
+function SectionImageCarousel({ images }: { images: Array<{ imageUrl: string; order: number }> }) {
+  const sorted = useMemo(() => images.filter((image) => image.imageUrl).sort((left, right) => left.order - right.order), [images]);
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused || sorted.length <= 1) return;
+    const timer = window.setInterval(() => setActive((current) => (current + 1) % sorted.length), 3200);
+    return () => window.clearInterval(timer);
+  }, [paused, sorted.length]);
+
+  if (!sorted.length) return null;
+  return (
+    <div
+      className="relative mt-5 aspect-video overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+    >
+      {sorted.map((image, index) => (
+        <img
+          key={`${image.imageUrl}-${index}`}
+          src={image.imageUrl}
+          alt=""
+          className={cn("absolute inset-0 h-full w-full object-cover transition-opacity duration-700", index === active ? "opacity-100" : "opacity-0")}
+        />
+      ))}
+      {sorted.length > 1 ? (
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
+          {sorted.map((image, index) => (
+            <button
+              key={`${image.imageUrl}-dot-${index}`}
+              type="button"
+              aria-label={`Show image ${index + 1}`}
+              onClick={() => setActive(index)}
+              className={cn("h-2.5 w-2.5 rounded-full bg-white/60 transition", index === active && "w-6 bg-white")}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function BlogDetailClient({ blog }: { blog: Blog }) {
@@ -293,7 +352,7 @@ export function BlogDetailClient({ blog }: { blog: Blog }) {
                 <div className="mt-6 flex flex-wrap gap-2">
                   {blog.tags.map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">{tag}</span>)}
                 </div>
-                <div className="prose prose-slate mt-8 max-w-none whitespace-pre-line text-slate-700 dark:prose-invert dark:text-slate-200">{blog.content}</div>
+                <RichTextRenderer className="prose prose-slate mt-8 max-w-none text-slate-700 dark:prose-invert dark:text-slate-200" value={blog.content} />
               </div>
             </div>
 
@@ -314,11 +373,15 @@ export function BlogDetailClient({ blog }: { blog: Blog }) {
             ) : null}
 
             <div className="mt-8 grid gap-6">
-              {blog.sections.map((section, index) => (
+              {blog.sections.map((section, index) => {
+                const media = sectionMedia(section.imageUrl, section.images, section.imagePlacement);
+                const carousel = <SectionImageCarousel images={media.images} />;
+                return (
                 <section key={section.id ?? index} id={sectionId(index)} className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
                   <h2 className="text-2xl font-black">{section.heading}</h2>
-                  <p className="mt-4 whitespace-pre-line leading-7 text-slate-600 dark:text-slate-300">{section.content}</p>
-                  {section.imageUrl ? <img src={section.imageUrl} alt="" className="mt-5 max-h-[26rem] w-full rounded-lg object-cover" /> : null}
+                  {media.placement === "top" ? carousel : null}
+                  <RichTextRenderer className="mt-4 text-slate-600 dark:text-slate-300" value={section.content} />
+                  {media.placement === "middle" ? carousel : null}
                   {section.videos?.length ? (
                     <div className="mt-5 grid gap-4">
                       {section.videos.map((video) => (
@@ -330,8 +393,9 @@ export function BlogDetailClient({ blog }: { blog: Blog }) {
                       ))}
                     </div>
                   ) : null}
+                  {media.placement === "bottom" ? carousel : null}
                 </section>
-              ))}
+              );})}
             </div>
 
             {blog.videos.length ? (

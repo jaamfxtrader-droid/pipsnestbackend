@@ -298,6 +298,11 @@ export const blogSectionSchema = z.object({
   heading: z.string().trim().min(2, "Section heading is required").max(180, "Section heading is too long"),
   content: z.string().trim().min(1, "Section content is required"),
   imageUrl: z.string().max(8_000_000, "Section image is too large").optional().or(z.literal("")),
+  images: z.array(z.object({
+    imageUrl: z.string().min(1, "Section image is required").max(8_000_000, "Section image is too large"),
+    order: z.coerce.number().int().min(0).default(0)
+  })).max(3, "Maximum 3 section images allowed").optional().default([]),
+  imagePlacement: z.enum(["top", "middle", "bottom"]).optional().default("middle"),
   videos: z.array(blogVideoSchema).max(2, "Maximum 2 section videos allowed").optional().default([]),
   order: z.coerce.number().int().min(0).default(0)
 });

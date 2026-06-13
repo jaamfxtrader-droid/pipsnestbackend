@@ -34,6 +34,19 @@ const commentInclude = {
   _count: { select: { replies: true, reactions: true } }
 } satisfies Prisma.BlogCommentInclude;
 
+type BlogImageInput = { imageUrl: string; order?: number; title?: string; caption?: string; altText?: string };
+type BlogVideoInput = { videoUrl: string; order?: number; title?: string; caption?: string };
+type BlogAttachmentInput = { fileUrl: string; order?: number; title?: string; contentType?: string };
+type BlogSectionInput = {
+  heading: string;
+  content: string;
+  imageUrl?: string | null;
+  images?: Array<{ imageUrl: string; order?: number }>;
+  imagePlacement?: "top" | "middle" | "bottom";
+  videos: BlogVideoInput[];
+  order?: number;
+};
+
 function normalizeSlug(value: string) {
   return slugify(value, { lower: true, strict: true, trim: true });
 }
@@ -78,7 +91,7 @@ function serializeComment<T extends { reactions?: Array<{ type: string }>; repli
   };
 }
 
-function blogData(input: ReturnType<typeof blogSchema.parse>) {
+function blogData(input: any) {
   const publishedAt = input.status === "PUBLISHED"
     ? input.publishedAt ? new Date(input.publishedAt) : new Date()
     : input.publishedAt ? new Date(input.publishedAt) : null;
@@ -104,31 +117,49 @@ function blogData(input: ReturnType<typeof blogSchema.parse>) {
   };
 }
 
-async function prepareBlogInput(input: ReturnType<typeof blogSchema.parse>) {
+function sectionImageConfig(section: { imageUrl?: string | null; images?: Array<{ imageUrl: string; order?: number }>; imagePlacement?: "top" | "middle" | "bottom" }) {
+  const images = section.images?.length
+    ? section.images.map((image, index) => ({ imageUrl: image.imageUrl, order: image.order ?? index }))
+    : section.imageUrl
+      ? [{ imageUrl: section.imageUrl, order: 0 }]
+      : [];
+  if (!images.length) return null;
+  return JSON.stringify({ placement: section.imagePlacement ?? "middle", images });
+}
+
+async function prepareBlogInput(input: any) {
   return {
     ...input,
     images: await Promise.all(
-      input.images.map(async (image, index) => ({ ...image, imageUrl: (await uploadBlogImage(image.imageUrl)) ?? image.imageUrl, order: image.order ?? index }))
+      (input.images as BlogImageInput[]).map(async (image, index: number) => ({ ...image, imageUrl: (await uploadBlogImage(image.imageUrl)) ?? image.imageUrl, order: image.order ?? index }))
     ),
     videos: await Promise.all(
-      input.videos.map(async (video, index) => ({ ...video, videoUrl: (await uploadBlogMedia(video.videoUrl)) ?? video.videoUrl, order: video.order ?? index }))
+      (input.videos as BlogVideoInput[]).map(async (video, index: number) => ({ ...video, videoUrl: (await uploadBlogMedia(video.videoUrl)) ?? video.videoUrl, order: video.order ?? index }))
     ),
     attachments: await Promise.all(
-      input.attachments.map(async (attachment, index) => ({ ...attachment, fileUrl: (await uploadBlogMedia(attachment.fileUrl)) ?? attachment.fileUrl, order: attachment.order ?? index }))
+      (input.attachments as BlogAttachmentInput[]).map(async (attachment, index: number) => ({ ...attachment, fileUrl: (await uploadBlogMedia(attachment.fileUrl)) ?? attachment.fileUrl, order: attachment.order ?? index }))
     ),
     sections: await Promise.all(
-      input.sections.map(async (section, index) => ({
-        ...section,
-        imageUrl: section.imageUrl ? (await uploadBlogImage(section.imageUrl)) ?? section.imageUrl : section.imageUrl,
-        videos: await Promise.all(
-          section.videos.map(async (video, videoIndex) => ({
-            ...video,
-            videoUrl: (await uploadBlogMedia(video.videoUrl)) ?? video.videoUrl,
-            order: video.order ?? videoIndex
-          }))
-        ),
-        order: section.order ?? index
-      }))
+      (input.sections as BlogSectionInput[]).map(async (section, index: number) => {
+        const sectionImages = section.images?.length
+          ? await Promise.all(section.images.map(async (image: { imageUrl: string; order?: number }, imageIndex: number) => ({ imageUrl: (await uploadBlogImage(image.imageUrl)) ?? image.imageUrl, order: image.order ?? imageIndex })))
+          : section.imageUrl
+            ? [{ imageUrl: (await uploadBlogImage(section.imageUrl)) ?? section.imageUrl, order: 0 }]
+            : [];
+        return {
+          ...section,
+          images: sectionImages,
+          imageUrl: sectionImageConfig({ ...section, images: sectionImages }),
+          videos: await Promise.all(
+            section.videos.map(async (video: BlogVideoInput, videoIndex: number) => ({
+              ...video,
+              videoUrl: (await uploadBlogMedia(video.videoUrl)) ?? video.videoUrl,
+              order: video.order ?? videoIndex
+            }))
+          ),
+          order: section.order ?? index
+        };
+      })
     )
   };
 }
@@ -326,16 +357,16 @@ adminBlogRouter.post(
     const blog = await prisma.blog.create({
       data: {
         ...blogData(input),
-        images: { create: input.images.map((image, index) => ({ ...image, order: image.order ?? index })) },
-        videos: { create: input.videos.map((video, index) => ({ ...video, order: video.order ?? index })) },
-        attachments: { create: input.attachments.map((attachment, index) => ({ ...attachment, order: attachment.order ?? index })) },
+        images: { create: (input.images as BlogImageInput[]).map((image, index: number) => ({ ...image, order: image.order ?? index })) },
+        videos: { create: (input.videos as BlogVideoInput[]).map((video, index: number) => ({ ...video, order: video.order ?? index })) },
+        attachments: { create: (input.attachments as BlogAttachmentInput[]).map((attachment, index: number) => ({ ...attachment, order: attachment.order ?? index })) },
         sections: {
-          create: input.sections.map((section, index) => ({
+          create: (input.sections as BlogSectionInput[]).map((section, index: number) => ({
             heading: section.heading,
             content: section.content,
             imageUrl: section.imageUrl || null,
             order: section.order ?? index,
-            videos: { create: section.videos.map((video, videoIndex) => ({ ...video, order: video.order ?? videoIndex })) }
+            videos: { create: section.videos.map((video: BlogVideoInput, videoIndex: number) => ({ ...video, order: video.order ?? videoIndex })) }
           }))
         }
       },
@@ -365,16 +396,16 @@ adminBlogRouter.put(
           where: { id: req.params.id },
           data: {
             ...blogData(input),
-            images: { create: input.images.map((image, index) => ({ ...image, order: image.order ?? index })) },
-            videos: { create: input.videos.map((video, index) => ({ ...video, order: video.order ?? index })) },
-            attachments: { create: input.attachments.map((attachment, index) => ({ ...attachment, order: attachment.order ?? index })) },
+            images: { create: (input.images as BlogImageInput[]).map((image, index: number) => ({ ...image, order: image.order ?? index })) },
+            videos: { create: (input.videos as BlogVideoInput[]).map((video, index: number) => ({ ...video, order: video.order ?? index })) },
+            attachments: { create: (input.attachments as BlogAttachmentInput[]).map((attachment, index: number) => ({ ...attachment, order: attachment.order ?? index })) },
             sections: {
-              create: input.sections.map((section, index) => ({
+              create: (input.sections as BlogSectionInput[]).map((section, index: number) => ({
                 heading: section.heading,
                 content: section.content,
                 imageUrl: section.imageUrl || null,
                 order: section.order ?? index,
-                videos: { create: section.videos.map((video, videoIndex) => ({ ...video, order: video.order ?? videoIndex })) }
+                videos: { create: section.videos.map((video: BlogVideoInput, videoIndex: number) => ({ ...video, order: video.order ?? videoIndex })) }
               }))
             }
           },
